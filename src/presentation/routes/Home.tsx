@@ -104,7 +104,7 @@ export function Home() {
           <QuickAction icon="🧠" title="Models" hint="Browse 290+ models with pricing" />
         </Link>
         <Link to="/transactions" className="block">
-          <QuickAction icon="📊" title="Transactions" hint="Deposits, usage, refunds" />
+          <QuickAction icon="🧾" title="Transactions" hint="Deposits, usage, refunds" />
         </Link>
       </div>
 
