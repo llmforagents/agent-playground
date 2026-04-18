@@ -45,10 +45,10 @@ export function Home() {
           <div className="text-5xl">👋</div>
           <div>
             <h1 className="text-2xl font-semibold">
-              Welcome to <span className="font-bold" style={{ color: '#06b6d4' }}>LLM4Agents</span>
+              Welcome to <span className="font-bold">LLM4Agents</span>
             </h1>
             <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-              Testing sandbox for the <span className="font-semibold" style={{ color: '#06b6d4' }}>LLM4Agents</span> API — chat, models, scraping and wallets against mainnet.
+              Testing sandbox for the <span className="font-semibold">LLM4Agents</span> API — chat, models, scraping and wallets against mainnet.
               <br />Every request costs <b>real money</b>. Start small.
             </p>
           </div>
@@ -70,7 +70,7 @@ export function Home() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <Card className="p-6 flex flex-col items-center text-center gap-3 bg-gradient-to-br from-primary/10 to-transparent border-primary/20">
-        <div className="text-xs text-muted-foreground">Available balance</div>
+        <div className="text-base sm:text-lg font-bold text-foreground">Available balance</div>
         <div className="text-4xl sm:text-5xl font-bold tabular-nums break-all">
           {balance.data ? fmtUsd(usdCents) : '—'}
         </div>

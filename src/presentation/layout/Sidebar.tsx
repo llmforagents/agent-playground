@@ -16,7 +16,7 @@ const links: readonly { to: string; label: string }[] = [
 export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   return (
     <nav className="w-full md:w-56 h-full border-r border-border bg-sidebar text-sidebar-foreground p-3 space-y-1 overflow-y-auto">
-      <div className="font-bold text-lg mb-3 px-2" style={{ color: '#06b6d4' }}>LLM4Agents</div>
+      <div className="font-bold text-lg mb-3 px-2">LLM4Agents</div>
       {links.map((l) => (
         <NavLink
           key={l.to}
