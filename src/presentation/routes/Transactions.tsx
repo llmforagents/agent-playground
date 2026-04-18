@@ -96,8 +96,8 @@ export function Transactions() {
             {type === 'all' ? 'No transactions yet.' : `No ${type} transactions on this page.`}
           </Card>
         ) : (
-          <div className="rounded-lg border border-border overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-lg border border-border overflow-x-auto">
+            <table className="w-full min-w-[40rem] text-sm">
               <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 font-medium">Type</th>

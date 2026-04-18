@@ -120,7 +120,7 @@ export function Wallet() {
     <div className="mx-auto max-w-4xl space-y-6">
       <Card className="p-6 flex flex-col items-center text-center gap-3 bg-gradient-to-br from-primary/10 to-transparent border-primary/20">
         <div className="text-xs text-muted-foreground">Available balance</div>
-        <div className="text-5xl font-bold tabular-nums">
+        <div className="text-4xl sm:text-5xl font-bold tabular-nums break-all">
           {balance.data ? fmtUsd(balance.data.availableUsdCents) : '—'}
         </div>
         {balance.data ? (

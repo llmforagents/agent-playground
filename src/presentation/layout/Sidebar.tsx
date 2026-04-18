@@ -13,15 +13,16 @@ const links: readonly { to: string; label: string }[] = [
   { to: '/settings', label: 'Settings' },
 ]
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   return (
-    <nav className="w-56 border-r border-border bg-sidebar text-sidebar-foreground p-3 space-y-1">
+    <nav className="w-full md:w-56 h-full border-r border-border bg-sidebar text-sidebar-foreground p-3 space-y-1 overflow-y-auto">
       <div className="font-semibold text-sm mb-3 px-2">llm4agents</div>
       {links.map((l) => (
         <NavLink
           key={l.to}
           to={l.to}
           end={l.to === '/'}
+          onClick={onNavigate}
           className={({ isActive }) =>
             `block px-3 py-2 rounded-lg text-sm transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-accent hover:text-accent-foreground'}`
           }

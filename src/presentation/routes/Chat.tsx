@@ -123,14 +123,16 @@ export function Chat() {
 
   return (
     <div className="mx-auto max-w-4xl h-[calc(100vh-9rem)] flex flex-col gap-3">
-      <Card className="p-4 flex-shrink-0 overflow-visible relative z-30">
-        <div className="flex items-center gap-3 flex-wrap">
-          <ModelPicker
-            models={models.data?.models ?? []}
-            value={model}
-            onChange={setModel}
-          />
-          <div className="flex items-center gap-2 ml-auto flex-wrap">
+      <Card className="p-3 md:p-4 flex-shrink-0 overflow-visible relative z-30">
+        <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+          <div className="w-full md:w-auto md:flex-1 md:min-w-[20rem]">
+            <ModelPicker
+              models={models.data?.models ?? []}
+              value={model}
+              onChange={setModel}
+            />
+          </div>
+          <div className="flex items-center gap-2 md:ml-auto flex-wrap">
             <button
               type="button"
               onClick={() => setToolsOn((v) => !v)}
