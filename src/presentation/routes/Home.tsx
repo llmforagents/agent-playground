@@ -44,9 +44,11 @@ export function Home() {
         <Card className="p-10 text-center space-y-4">
           <div className="text-5xl">👋</div>
           <div>
-            <h1 className="text-2xl font-semibold">Welcome to llm4agents</h1>
+            <h1 className="text-2xl font-semibold">
+              Welcome to <span className="font-bold" style={{ color: '#06b6d4' }}>LLM4Agents</span>
+            </h1>
             <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-              Testing sandbox for the llm4agents API — chat, models, scraping and wallets against mainnet.
+              Testing sandbox for the <span className="font-semibold" style={{ color: '#06b6d4' }}>LLM4Agents</span> API — chat, models, scraping and wallets against mainnet.
               <br />Every request costs <b>real money</b>. Start small.
             </p>
           </div>
