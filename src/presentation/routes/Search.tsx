@@ -87,7 +87,7 @@ export function Search() {
                 key={m.id}
                 type="button"
                 onClick={() => setMode(m.id)}
-                className={`py-2.5 px-3 text-sm rounded-md transition-colors text-center ${active ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`py-2.5 px-3 text-sm rounded-md transition-colors text-center ${active ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {m.label}
               </button>

@@ -80,7 +80,7 @@ export function Transactions() {
               key={f}
               type="button"
               onClick={() => { setType(f); setOffset(0) }}
-              className={`py-1.5 text-sm rounded-md transition-colors capitalize ${type === f ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`py-1.5 text-sm rounded-md transition-colors capitalize ${type === f ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
               {f}
             </button>

@@ -70,7 +70,7 @@ export function Settings() {
                   key={t}
                   type="button"
                   onClick={() => { if (theme !== t) toggleTheme() }}
-                  className={`py-1.5 px-6 text-sm rounded-md transition-colors capitalize ${theme === t ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                  className={`py-1.5 px-6 text-sm rounded-md transition-colors capitalize ${theme === t ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   {t}
                 </button>
