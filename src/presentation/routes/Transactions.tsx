@@ -3,6 +3,8 @@ import { Card } from '@/presentation/components/ui/card'
 import { Button } from '@/presentation/components/ui/button'
 import { useTransactions } from '@/presentation/hooks/useTransactions'
 import { ErrorView } from '@/presentation/components/ErrorView'
+import { useT } from '@/presentation/hooks/useT'
+import type { MessageKey } from '@/domain/i18n'
 import type { TransactionInfo } from '@/infrastructure/schemas/rest'
 
 const PAGE = 25
@@ -34,7 +36,15 @@ function amountClass(t: TransactionInfo['type']): string {
   return 'text-orange-600'
 }
 
+const FILTER_LABELS: Record<Filter, MessageKey> = {
+  all: 'tx.filterAll',
+  deposit: 'tx.filterDeposit',
+  usage: 'tx.filterUsage',
+  refund: 'tx.filterRefund',
+}
+
 export function Transactions() {
+  const t = useT()
   const [type, setType] = useState<Filter>('all')
   const [offset, setOffset] = useState(0)
   const q = useTransactions({
@@ -61,16 +71,16 @@ export function Transactions() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <StatCard label="Deposits (page)" value={fmtUsd(totals.deposit)} accent="emerald" />
-        <StatCard label="Usage (page)" value={fmtUsd(totals.usage)} accent="orange" />
-        <StatCard label="Refunds (page)" value={fmtUsd(totals.refund)} accent="sky" />
+        <StatCard label={t('tx.statsDeposits')} value={fmtUsd(totals.deposit)} accent="emerald" />
+        <StatCard label={t('tx.statsUsage')} value={fmtUsd(totals.usage)} accent="orange" />
+        <StatCard label={t('tx.statsRefunds')} value={fmtUsd(totals.refund)} accent="sky" />
       </div>
 
       <Card className="p-4">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-          <h2 className="text-lg font-semibold">Transactions</h2>
+          <h2 className="text-lg font-semibold">{t('tx.title')}</h2>
           <span className="text-xs text-muted-foreground">
-            {total === 0 ? '0' : `${from}–${to} of ${total}`}
+            {total === 0 ? '0' : t('tx.rangeOf', { from, to, total })}
           </span>
         </div>
 
@@ -80,9 +90,9 @@ export function Transactions() {
               key={f}
               type="button"
               onClick={() => { setType(f); setOffset(0) }}
-              className={`py-1.5 text-sm rounded-md transition-colors capitalize ${type === f ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`py-1.5 text-sm rounded-md transition-colors ${type === f ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              {f}
+              {t(FILTER_LABELS[f])}
             </button>
           ))}
         </div>
@@ -90,38 +100,38 @@ export function Transactions() {
         {err ? <div className="mb-4"><ErrorView error={err} /></div> : null}
 
         {q.isLoading ? (
-          <Card className="p-6 text-center text-sm text-muted-foreground">Loading…</Card>
+          <Card className="p-6 text-center text-sm text-muted-foreground">{t('common.loading')}</Card>
         ) : txns.length === 0 ? (
           <Card className="p-8 text-center text-sm text-muted-foreground">
-            {type === 'all' ? 'No transactions yet.' : `No ${type} transactions on this page.`}
+            {type === 'all' ? t('tx.emptyAll') : t('tx.emptyFiltered', { type })}
           </Card>
         ) : (
           <div className="rounded-lg border border-border overflow-x-auto">
             <table className="w-full min-w-[40rem] text-sm">
               <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Type</th>
-                  <th className="px-3 py-2 font-medium text-right">Amount</th>
-                  <th className="px-3 py-2 font-medium">When</th>
-                  <th className="px-3 py-2 font-medium">Description</th>
+                  <th className="px-3 py-2 font-medium">{t('tx.type')}</th>
+                  <th className="px-3 py-2 font-medium text-right">{t('tx.amount')}</th>
+                  <th className="px-3 py-2 font-medium">{t('tx.when')}</th>
+                  <th className="px-3 py-2 font-medium">{t('tx.description')}</th>
                 </tr>
               </thead>
               <tbody>
-                {txns.map((t) => (
-                  <tr key={t.id} className="border-t border-border hover:bg-muted/20 transition-colors">
+                {txns.map((txn) => (
+                  <tr key={txn.id} className="border-t border-border hover:bg-muted/20 transition-colors">
                     <td className="px-3 py-2">
-                      <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${typeStyle(t.type)}`}>
-                        {t.type}
+                      <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${typeStyle(txn.type)}`}>
+                        {txn.type}
                       </span>
                     </td>
-                    <td className={`px-3 py-2 text-right tabular-nums font-medium ${amountClass(t.type)}`}>
-                      {amountSign(t.type, t.amountCents)}{fmtUsd(Math.abs(t.amountCents))}
+                    <td className={`px-3 py-2 text-right tabular-nums font-medium ${amountClass(txn.type)}`}>
+                      {amountSign(txn.type, txn.amountCents)}{fmtUsd(Math.abs(txn.amountCents))}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
-                      {new Date(t.timestamp).toLocaleString()}
+                      {new Date(txn.timestamp).toLocaleString()}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
-                      {t.description ?? '—'}
+                      {txn.description ?? '—'}
                     </td>
                   </tr>
                 ))}
@@ -132,14 +142,14 @@ export function Transactions() {
 
         <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
           <span className="text-xs text-muted-foreground">
-            Page {Math.floor(offset / PAGE) + 1} of {Math.max(1, Math.ceil(total / PAGE))}
+            {t('tx.pageOf', { page: Math.floor(offset / PAGE) + 1, total: Math.max(1, Math.ceil(total / PAGE)) })}
           </span>
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" disabled={!canPrev} onClick={() => setOffset(Math.max(0, offset - PAGE))}>
-              Prev
+              {t('common.prev')}
             </Button>
             <Button size="sm" variant="secondary" disabled={!canNext} onClick={() => setOffset(offset + PAGE)}>
-              Next
+              {t('common.next')}
             </Button>
           </div>
         </div>

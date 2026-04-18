@@ -6,6 +6,7 @@ import type { ChatMessage } from '@/domain/chat'
 import type { AppError } from '@/domain/errors'
 import { coerceToAppError } from '@/domain/errors'
 import type { DispatchMode } from '@/application/runAgenticChat'
+import { useT } from './useT'
 
 export type AgenticStep =
   | { readonly kind: 'assistant_text'; readonly text: string }
@@ -19,6 +20,7 @@ export type AgenticChatState =
   | { readonly status: 'error'; readonly error: AppError; readonly steps: readonly AgenticStep[] }
 
 export function useAgenticChat() {
+  const t = useT()
   const container = useAppContainer()
   const agent = useActiveAgent()
   const [state, setState] = useState<AgenticChatState>({ status: 'idle' })
@@ -67,7 +69,7 @@ export function useAgenticChat() {
           setState({ status: 'done', text: ev.text, meta: ev.meta, steps, mode })
           return
         } else if (ev.kind === 'max_iterations') {
-          setState({ status: 'error', error: { kind: 'unknown', message: 'Reached max iterations (5) without a final answer. Try a simpler question or disable tools.', raw: null }, steps })
+          setState({ status: 'error', error: { kind: 'unknown', message: t('chat.maxIterationsError'), raw: null }, steps })
           return
         } else if (ev.kind === 'error') {
           setState({ status: 'error', error: ev.error, steps })

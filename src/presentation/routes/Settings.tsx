@@ -6,11 +6,16 @@ import { Card } from '@/presentation/components/ui/card'
 import { ErrorView } from '@/presentation/components/ErrorView'
 import { useAppStore } from '@/presentation/hooks/useAppStore'
 import { useAppContainer } from '@/presentation/hooks/useAppContainer'
+import { useT } from '@/presentation/hooks/useT'
+import { LOCALES, LOCALE_LABELS, type Locale } from '@/domain/i18n'
 import type { HealthzResponse } from '@/infrastructure/schemas/rest'
 
 export function Settings() {
+  const t = useT()
   const theme = useAppStore((s) => s.theme)
   const toggleTheme = useAppStore((s) => s.toggleTheme)
+  const locale = useAppStore((s) => s.locale)
+  const setLocale = useAppStore((s) => s.setLocale)
   const ack = useAppStore((s) => s.mainnetBannerAck)
   const container = useAppContainer()
   const [lastPingAt, setLastPingAt] = useState<string | undefined>()
@@ -44,10 +49,10 @@ export function Settings() {
           : Promise.resolve()
       ))
       localStorage.clear()
-      toast.success('Local data wiped. Reloading…')
+      toast.success(t('settings.wiped'))
       setTimeout(() => window.location.reload(), 500)
     } catch (e) {
-      toast.error('Wipe failed', { description: e instanceof Error ? e.message : String(e) })
+      toast.error(t('settings.wipeFailed'), { description: e instanceof Error ? e.message : String(e) })
       setConfirmWipe(false)
     }
   }
@@ -57,30 +62,48 @@ export function Settings() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <SettingsSection
-        title="Appearance"
-        description="UI preferences. Stored in localStorage, per browser."
+        title={t('settings.appearance')}
+        description={t('settings.appearanceDesc')}
       >
         <Row
-          label="Theme"
-          hint="Light or dark. Applies immediately."
+          label={t('settings.theme')}
+          hint={t('settings.themeHint')}
           action={
             <div className="rounded-lg border border-border bg-muted/30 p-1 grid grid-cols-2 gap-1">
-              {(['light', 'dark'] as const).map((t) => (
+              {(['light', 'dark'] as const).map((th) => (
                 <button
-                  key={t}
+                  key={th}
                   type="button"
-                  onClick={() => { if (theme !== t) toggleTheme() }}
-                  className={`py-1.5 px-6 text-sm rounded-md transition-colors capitalize ${theme === t ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => { if (theme !== th) toggleTheme() }}
+                  className={`py-1.5 px-6 text-sm rounded-md transition-colors ${theme === th ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
                 >
-                  {t}
+                  {th === 'light' ? t('settings.light') : t('settings.dark')}
                 </button>
               ))}
             </div>
           }
         />
         <Row
-          label="Mainnet banner"
-          hint={ack ? 'You have acknowledged the mainnet warning.' : 'Banner is currently visible.'}
+          label={t('settings.language')}
+          hint={t('settings.languageHint')}
+          action={
+            <div className="rounded-lg border border-border bg-muted/30 p-1 flex">
+              {LOCALES.map((l: Locale) => (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => setLocale(l)}
+                  className={`py-1.5 px-4 text-sm rounded-md transition-colors ${locale === l ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  {LOCALE_LABELS[l]}
+                </button>
+              ))}
+            </div>
+          }
+        />
+        <Row
+          label={t('settings.mainnetBanner')}
+          hint={ack ? t('settings.mainnetAckYes') : t('settings.mainnetAckNo')}
           action={
             <Button
               size="sm"
@@ -88,15 +111,15 @@ export function Settings() {
               onClick={() => { useAppStore.setState({ mainnetBannerAck: false }) }}
               disabled={!ack}
             >
-              {ack ? 'Reset acknowledgement' : 'Already visible'}
+              {ack ? t('settings.mainnetReset') : t('settings.mainnetAlready')}
             </Button>
           }
         />
       </SettingsSection>
 
       <SettingsSection
-        title="System health"
-        description="Ping the API to verify connectivity. Doesn't cost balance."
+        title={t('settings.health')}
+        description={t('settings.healthDesc')}
       >
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -105,22 +128,22 @@ export function Settings() {
                 className={`size-2 rounded-full ${ping.isPending ? 'bg-amber-500 animate-pulse' : serverOk ? 'bg-emerald-500' : ping.error ? 'bg-destructive' : 'bg-muted-foreground/50'}`}
               />
               <span className="text-sm">
-                {ping.isPending ? 'Pinging…' :
-                  serverOk ? 'Server reachable' :
-                  ping.error ? 'Ping failed' : 'Not checked'}
+                {ping.isPending ? t('settings.healthPinging') :
+                  serverOk ? t('settings.healthReachable') :
+                  ping.error ? t('settings.healthFailed') : t('settings.healthUnknown')}
               </span>
             </div>
             <Button size="sm" onClick={() => ping.mutate()} disabled={ping.isPending}>
-              {ping.isPending ? 'Pinging…' : 'Ping /healthz'}
+              {ping.isPending ? t('settings.healthPinging') : t('settings.healthPing')}
             </Button>
           </div>
 
           {ping.data ? (
             <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-              <InfoLine label="Status" value={ping.data.status} mono />
-              <InfoLine label="Service" value={ping.data.service} mono />
-              <InfoLine label="Server time" value={new Date(ping.data.timestamp).toLocaleString()} />
-              <InfoLine label="Client time" value={lastPingAt ?? '—'} />
+              <InfoLine label={t('settings.healthStatus')} value={ping.data.status} mono />
+              <InfoLine label={t('settings.healthService')} value={ping.data.service} mono />
+              <InfoLine label={t('settings.healthServerTime')} value={new Date(ping.data.timestamp).toLocaleString()} />
+              <InfoLine label={t('settings.healthClientTime')} value={lastPingAt ?? '—'} />
             </div>
           ) : null}
 
@@ -129,20 +152,20 @@ export function Settings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Danger zone"
-        description="Irreversible actions on local storage. Will NOT delete anything on the backend."
+        title={t('settings.danger')}
+        description={t('settings.dangerDesc')}
         tone="destructive"
       >
         <Row
-          label="Wipe local data"
-          hint="Deletes all IndexedDB databases (agents, wallets, history, sessions) and clears localStorage."
+          label={t('settings.wipeLocal')}
+          hint={t('settings.wipeHint')}
           action={
             <Button
               size="sm"
               variant="destructive"
               onClick={() => { void onWipe() }}
             >
-              {confirmWipe ? 'Click to confirm' : 'Wipe local data'}
+              {confirmWipe ? t('agents.deleteConfirm') : t('settings.wipeLocal')}
             </Button>
           }
         />

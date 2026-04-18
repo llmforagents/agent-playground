@@ -13,6 +13,7 @@ import { useBalance } from '@/presentation/hooks/useBalance'
 import { useChatStream } from '@/presentation/hooks/useChatStream'
 import { useAgenticChat, type AgenticStep } from '@/presentation/hooks/useAgenticChat'
 import { useActiveAgent } from '@/presentation/hooks/useActiveAgent'
+import { useT } from '@/presentation/hooks/useT'
 import type { ChatMessage } from '@/domain/chat'
 import { DEFAULT_MODEL } from '@/domain/defaults'
 
@@ -22,6 +23,7 @@ type ConversationEntry =
   | { readonly kind: 'agentic'; readonly steps: readonly AgenticStep[]; readonly finalText: string }
 
 export function Chat() {
+  const t = useT()
   const agent = useActiveAgent()
   const balance = useBalance()
   const models = useModels()
@@ -64,7 +66,7 @@ export function Chat() {
     return out
   }, [entries])
 
-  if (!agent) return <p className="text-sm text-muted-foreground">Select an agent first.</p>
+  if (!agent) return <p className="text-sm text-muted-foreground">{t('noAgent.select')}</p>
 
   const noBalance = balance.data && balance.data.availableUsdCents === 0
   if (noBalance) {
@@ -72,13 +74,11 @@ export function Chat() {
       <div className="mx-auto max-w-4xl">
         <Card className="p-8 text-center space-y-3">
           <div className="text-4xl">💸</div>
-          <h2 className="text-lg font-semibold">Balance is $0.00</h2>
-          <p className="text-sm text-muted-foreground">
-            Chat completions cost real money. Deposit funds to unlock chat.
-          </p>
+          <h2 className="text-lg font-semibold">{t('chat.balanceZeroTitle')}</h2>
+          <p className="text-sm text-muted-foreground">{t('chat.balanceZeroBody')}</p>
           <div>
             <Link to="/wallet">
-              <Button>Go to Wallet</Button>
+              <Button>{t('chat.goToWallet')}</Button>
             </Link>
           </div>
         </Card>
@@ -137,15 +137,15 @@ export function Chat() {
               type="button"
               onClick={() => setToolsOn((v) => !v)}
               className={`h-9 rounded-lg border px-3 text-xs flex items-center gap-1.5 transition-colors ${toolsOn ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground'}`}
-              title={toolsOn ? 'Tools enabled · the agent can call MCP tools' : 'Tools disabled · plain streaming'}
+              title={toolsOn ? t('chat.toolsOnHint') : t('chat.toolsOffHint')}
             >
               <WrenchIcon className="size-3.5" />
-              Tools {toolsOn ? 'on' : 'off'}
+              {toolsOn ? t('chat.toolsOn') : t('chat.toolsOff')}
             </button>
             <ToolsViewer />
             <CostBadge meta={doneMeta} />
             <Button size="sm" variant="ghost" onClick={clear} disabled={entries.length === 0 || busy}>
-              Clear
+              {t('common.clear')}
             </Button>
           </div>
         </div>
@@ -157,26 +157,26 @@ export function Chat() {
             <div className="h-full flex items-center justify-center text-center">
               <div className="max-w-sm space-y-2">
                 <div className="text-3xl">💬</div>
-                <div className="text-sm font-medium">Start a conversation</div>
+                <div className="text-sm font-medium">{t('chat.startConversation')}</div>
                 <div className="text-xs text-muted-foreground">
-                  Default model <b>{DEFAULT_MODEL}</b>.
-                  {toolsOn ? ' Tools enabled: the agent can search Google, fetch pages, extract data.' : ' Tools off: plain streaming.'}
+                  {t('chat.startHint')} <b>{DEFAULT_MODEL}</b>.
+                  {toolsOn ? t('chat.startHintTools') : t('chat.startHintNoTools')}
                 </div>
               </div>
             </div>
           ) : null}
 
           {entries.map((e, i) => e.kind === 'msg'
-            ? <Bubble key={i} role={e.role} content={e.content} />
-            : <AgenticBlock key={i} steps={e.steps} finalText={e.finalText} />
+            ? <Bubble key={i} role={e.role} content={e.content} t={t} />
+            : <AgenticBlock key={i} steps={e.steps} finalText={e.finalText} t={t} />
           )}
 
           {stream.state.status === 'streaming' ? (
-            <Bubble role="assistant" content={stream.state.partial} streaming />
+            <Bubble role="assistant" content={stream.state.partial} streaming t={t} />
           ) : null}
 
           {agentic.state.status === 'running' ? (
-            <AgenticBlock steps={agentic.state.steps} finalText="" isRunning iteration={agentic.state.iteration} />
+            <AgenticBlock steps={agentic.state.steps} finalText="" isRunning iteration={agentic.state.iteration} t={t} />
           ) : null}
 
           {currentError ? (
@@ -194,7 +194,7 @@ export function Chat() {
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={toolsOn ? 'Ask anything · the agent can use tools · Enter to send' : 'Type a message · Enter to send · Shift+Enter newline'}
+            placeholder={toolsOn ? t('chat.placeholderTools') : t('chat.placeholderStream')}
             rows={2}
             className="resize-none min-h-[2.5rem] max-h-40"
             onKeyDown={(e) => {
@@ -203,9 +203,9 @@ export function Chat() {
             disabled={busy}
           />
           {busy ? (
-            <Button variant="destructive" onClick={stopAll}>Stop</Button>
+            <Button variant="destructive" onClick={stopAll}>{t('common.stop')}</Button>
           ) : (
-            <Button onClick={send} disabled={!input.trim()}>Send</Button>
+            <Button onClick={send} disabled={!input.trim()}>{t('common.send')}</Button>
           )}
         </div>
       </Card>
@@ -213,9 +213,12 @@ export function Chat() {
   )
 }
 
-function Bubble({ role, content, streaming = false }: { role: Role; content: string; streaming?: boolean }): React.JSX.Element {
+type TFn = ReturnType<typeof useT>
+
+function Bubble({ role, content, streaming = false, t }: { role: Role; content: string; streaming?: boolean; t: TFn }): React.JSX.Element {
   const isUser = role === 'user'
   const isAssistant = role === 'assistant'
+  const roleLabel = role === 'user' ? t('chat.user') : role === 'assistant' ? t('chat.assistant') : role
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
       <div
@@ -231,7 +234,7 @@ function Bubble({ role, content, streaming = false }: { role: Role; content: str
       </div>
       <div className={`flex-1 min-w-0 ${isUser ? 'flex flex-col items-end' : ''}`}>
         <div className="text-[10px] text-muted-foreground mb-1">
-          {role.charAt(0).toUpperCase() + role.slice(1)}{streaming ? ' · streaming' : ''}
+          {roleLabel}{streaming ? ` · ${t('chat.streaming')}` : ''}
         </div>
         <div
           className={`rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words max-w-[85%] ${
@@ -240,7 +243,7 @@ function Bubble({ role, content, streaming = false }: { role: Role; content: str
               : 'bg-muted/40 text-foreground'
           }`}
         >
-          {content || (streaming ? <span className="text-muted-foreground italic">thinking…</span> : null)}
+          {content || (streaming ? <span className="text-muted-foreground italic">{t('chat.thinking')}</span> : null)}
         </div>
       </div>
     </div>
@@ -248,12 +251,13 @@ function Bubble({ role, content, streaming = false }: { role: Role; content: str
 }
 
 function AgenticBlock({
-  steps, finalText, isRunning = false, iteration = 0,
+  steps, finalText, isRunning = false, iteration = 0, t,
 }: {
   steps: readonly AgenticStep[]
   finalText: string
   isRunning?: boolean
   iteration?: number
+  t: TFn
 }): React.JSX.Element {
   return (
     <div className="flex gap-3">
@@ -262,15 +266,15 @@ function AgenticBlock({
       </div>
       <div className="flex-1 min-w-0 space-y-2">
         <div className="text-[10px] text-muted-foreground">
-          Assistant{isRunning ? ` · working… (iteration ${iteration + 1})` : ''}
+          {t('chat.assistant')}{isRunning ? ` · ${t('chat.working', { n: iteration + 1 })}` : ''}
         </div>
 
         {steps.map((s, i) => {
-          if (s.kind === 'tool') return <ToolStep key={i} step={s} />
+          if (s.kind === 'tool') return <ToolStep key={i} step={s} t={t} />
           if (s.kind === 'mode_fallback') {
             return (
               <div key={i} className="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 px-3 py-2 text-xs max-w-[85%]">
-                ⚠ Switched from <b>{s.from}</b> to <b>{s.to}</b> tool mode · {s.reason}
+                ⚠ {t('chat.modeFallback', { from: s.from, to: s.to })} · {s.reason}
               </div>
             )
           }
@@ -290,7 +294,7 @@ function AgenticBlock({
           </div>
         ) : isRunning && steps.length === 0 ? (
           <div className="rounded-xl px-3 py-2 text-sm bg-muted/40 text-muted-foreground italic max-w-[85%]">
-            thinking…
+            {t('chat.thinking')}
           </div>
         ) : null}
       </div>
@@ -298,12 +302,13 @@ function AgenticBlock({
   )
 }
 
-function ToolStep({ step }: { step: Extract<AgenticStep, { kind: 'tool' }> }): React.JSX.Element {
+function ToolStep({ step, t }: { step: Extract<AgenticStep, { kind: 'tool' }>; t: TFn }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const statusIcon =
     step.status === 'running' ? <Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
     : step.status === 'ok' ? <CheckIcon className="size-3.5 text-emerald-600" />
     : <XIcon className="size-3.5 text-destructive" />
+  const statusLabel = step.status === 'running' ? t('chat.toolRunning') : step.status === 'ok' ? t('chat.toolDone') : t('chat.toolFailed')
 
   return (
     <div className="rounded-xl border border-border bg-muted/20 max-w-[85%] overflow-hidden">
@@ -317,23 +322,21 @@ function ToolStep({ step }: { step: Extract<AgenticStep, { kind: 'tool' }> }): R
         <span className="font-mono font-medium truncate">{step.toolName}</span>
         <span className="ml-auto flex items-center gap-1 flex-shrink-0">
           {statusIcon}
-          <span className="text-muted-foreground">
-            {step.status === 'running' ? 'running' : step.status === 'ok' ? 'done' : 'failed'}
-          </span>
+          <span className="text-muted-foreground">{statusLabel}</span>
         </span>
       </button>
 
       {open ? (
         <div className="px-3 py-2 border-t border-border space-y-2 text-xs">
           <div>
-            <div className="text-[10px] text-muted-foreground mb-1">Arguments</div>
+            <div className="text-[10px] text-muted-foreground mb-1">{t('chat.toolArgs')}</div>
             <pre className="font-mono text-[11px] bg-background rounded-md border border-border px-2 py-1.5 overflow-auto max-h-32">
               {safeStringify(step.args)}
             </pre>
           </div>
           {step.summary ? (
             <div>
-              <div className="text-[10px] text-muted-foreground mb-1">Result</div>
+              <div className="text-[10px] text-muted-foreground mb-1">{t('chat.toolResult')}</div>
               <pre className="font-mono text-[11px] bg-background rounded-md border border-border px-2 py-1.5 overflow-auto max-h-48 whitespace-pre-wrap break-words">
                 {step.summary}
               </pre>

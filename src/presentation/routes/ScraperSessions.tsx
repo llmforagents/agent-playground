@@ -13,6 +13,7 @@ import { useAppContainer } from '@/presentation/hooks/useAppContainer'
 import { useActiveAgent } from '@/presentation/hooks/useActiveAgent'
 import { useSessions } from '@/presentation/hooks/useSessions'
 import { SessionId } from '@/domain/branded'
+import { useT } from '@/presentation/hooks/useT'
 import type { ProxyTier, McpSession } from '@/domain/scraper'
 
 const DEFAULT_ACTION = `{
@@ -34,6 +35,7 @@ function tierStyle(t: ProxyTier): string {
 }
 
 export function ScraperSessions() {
+  const t = useT()
   const agent = useActiveAgent()
   const container = useAppContainer()
   const { query, invalidate } = useSessions()
@@ -50,7 +52,7 @@ export function ScraperSessions() {
       await invalidate()
       return res.value
     },
-    onSuccess: (sid) => { toast.success('Session created', { description: sid }) },
+    onSuccess: (sid) => { toast.success(t('scraperS.sessionCreated'), { description: sid }) },
   })
 
   const closeSession = useMutation({
@@ -60,7 +62,7 @@ export function ScraperSessions() {
       if (!res.ok) throw res.error
       await invalidate()
     },
-    onSuccess: () => { toast.success('Session closed') },
+    onSuccess: () => { toast.success(t('scraperS.sessionClosed')) },
   })
 
   const execAction = useMutation({
@@ -85,7 +87,7 @@ export function ScraperSessions() {
     },
   })
 
-  if (!agent) return <p className="text-sm text-muted-foreground">Select an agent first.</p>
+  if (!agent) return <p className="text-sm text-muted-foreground">{t('noAgent.select')}</p>
 
   const createErr = createSession.error
   const execErr = execAction.error
@@ -95,25 +97,23 @@ export function ScraperSessions() {
     <div className="mx-auto max-w-4xl space-y-6">
       <Card className="p-6">
         <div className="text-center mb-4">
-          <h2 className="text-lg font-semibold">Scraper · sessions</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Open a browser session, run actions (goto, click, type…), close when done.
-          </p>
+          <h2 className="text-lg font-semibold">{t('scraperS.title')}</h2>
+          <p className="text-xs text-muted-foreground mt-1">{t('scraperS.subtitle')}</p>
         </div>
 
         <div className="mx-auto max-w-2xl space-y-4">
           <div>
-            <label className="text-xs text-muted-foreground block mb-1">Proxy tier</label>
+            <label className="text-xs text-muted-foreground block mb-1">{t('scraper.proxyTier')}</label>
             <ProxyTierSelector value={tier} onChange={setTier} />
           </div>
           <div>
             <label className="text-xs text-muted-foreground block mb-1">
-              Initial URL <span className="normal-case text-muted-foreground/60">(optional)</span>
+              {t('scraperS.initialUrl')} <span className="normal-case text-muted-foreground/60">{t('scraper.optional')}</span>
             </label>
             <Input value={initialUrl} onChange={(e) => setInitialUrl(e.target.value)} placeholder="https://…" />
           </div>
           <Button className="w-full" onClick={() => createSession.mutate()} disabled={createSession.isPending}>
-            {createSession.isPending ? 'Creating…' : 'Create session'}
+            {createSession.isPending ? t('scraperS.creating') : t('scraperS.create')}
           </Button>
           {createErr ? <ErrorView error={createErr} /> : null}
         </div>
@@ -121,15 +121,13 @@ export function ScraperSessions() {
 
       <section>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h2 className="text-lg font-semibold">Active sessions</h2>
-          <span className="text-xs text-muted-foreground">{sessions.length} open</span>
+          <h2 className="text-lg font-semibold">{t('scraperS.active')}</h2>
+          <span className="text-xs text-muted-foreground">{t('scraperS.open', { n: sessions.length })}</span>
         </div>
 
         {sessions.length === 0 ? (
           <Card className="p-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              No active sessions. Create one above to start browsing.
-            </p>
+            <p className="text-sm text-muted-foreground">{t('scraperS.empty')}</p>
           </Card>
         ) : (
           <div className="space-y-3">
@@ -138,7 +136,7 @@ export function ScraperSessions() {
                 key={s.id}
                 session={s}
                 actionText={actionText[s.id] ?? DEFAULT_ACTION}
-                onActionTextChange={(t) => setActionText((m) => ({ ...m, [s.id]: t }))}
+                onActionTextChange={(val) => setActionText((m) => ({ ...m, [s.id]: val }))}
                 onExec={() => execAction.mutate({ sessionId: s.id, action: actionText[s.id] ?? DEFAULT_ACTION })}
                 onStatus={() => statusCheck.mutate(s.id)}
                 onClose={() => closeSession.mutate(s.id)}
@@ -179,6 +177,7 @@ function SessionCard({
   closePending: boolean
   resultForThisSession: { kind: 'exec' | 'status'; value: unknown } | null
 }): React.JSX.Element {
+  const t = useT()
   return (
     <Card className="p-4 space-y-3">
       <div className="flex items-start gap-3 flex-wrap">
@@ -195,11 +194,11 @@ function SessionCard({
             <div className="text-xs text-muted-foreground truncate" title={session.initialUrl}>↗ {session.initialUrl}</div>
           ) : null}
         </div>
-        <CopyButton text={session.id} label="Copy ID" size="sm" variant="ghost" />
+        <CopyButton text={session.id} label={t('agents.copyId')} size="sm" variant="ghost" />
       </div>
 
       <div>
-        <label className="text-xs text-muted-foreground block mb-1">Action JSON</label>
+        <label className="text-xs text-muted-foreground block mb-1">{t('scraperS.actionJson')}</label>
         <Textarea
           rows={5}
           value={actionText}
@@ -210,14 +209,14 @@ function SessionCard({
 
       <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={onExec} disabled={execPending}>
-          {execPending ? 'Executing…' : 'Execute'}
+          {execPending ? t('scraperS.executing') : t('scraperS.execute')}
         </Button>
         <Button size="sm" variant="secondary" onClick={onStatus} disabled={statusPending}>
-          {statusPending ? 'Checking…' : 'Status'}
+          {statusPending ? t('scraperS.checking') : t('scraperS.status')}
         </Button>
         <div className="flex-1" />
         <Button size="sm" variant="destructive" onClick={onClose} disabled={closePending}>
-          {closePending ? 'Closing…' : 'Close'}
+          {closePending ? t('scraperS.closing') : t('common.close')}
         </Button>
       </div>
 
@@ -225,7 +224,7 @@ function SessionCard({
         <div>
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-muted-foreground">
-              {resultForThisSession.kind === 'exec' ? 'Last exec result' : 'Status'}
+              {resultForThisSession.kind === 'exec' ? t('scraperS.lastExec') : t('scraperS.statusResult')}
             </span>
           </div>
           <JsonView value={resultForThisSession.value} maxHeight="24rem" />

@@ -8,14 +8,16 @@ import { JsonView } from '@/presentation/components/JsonView'
 import { CopyButton } from '@/presentation/components/CopyButton'
 import { useAppContainer } from '@/presentation/hooks/useAppContainer'
 import { useActiveAgent } from '@/presentation/hooks/useActiveAgent'
+import { useT } from '@/presentation/hooks/useT'
+import type { MessageKey } from '@/domain/i18n'
 import type { SearchTool } from '@/domain/scraper'
 import type { McpToolResult } from '@/infrastructure/schemas/mcp'
 
-const MODES = [
-  { id: 'google_search' as const, label: 'Web', desc: 'Google organic results' },
-  { id: 'google_news' as const, label: 'News', desc: 'Recent articles with date and source' },
-  { id: 'google_maps' as const, label: 'Maps', desc: 'Places with address, phone, rating' },
-  { id: 'google_batch_search' as const, label: 'Batch', desc: '1–100 queries in one call' },
+const MODES: ReadonlyArray<{ id: SearchTool; labelKey: MessageKey; descKey: MessageKey }> = [
+  { id: 'google_search', labelKey: 'search.modeWeb', descKey: 'search.descWeb' },
+  { id: 'google_news', labelKey: 'search.modeNews', descKey: 'search.descNews' },
+  { id: 'google_maps', labelKey: 'search.modeMaps', descKey: 'search.descMaps' },
+  { id: 'google_batch_search', labelKey: 'search.modeBatch', descKey: 'search.descBatch' },
 ]
 
 type Mode = (typeof MODES)[number]['id']
@@ -42,6 +44,7 @@ function toParams(c: Common): Record<string, unknown> {
 }
 
 export function Search() {
+  const t = useT()
   const agent = useActiveAgent()
   const container = useAppContainer()
   const [mode, setMode] = useState<Mode>('google_search')
@@ -61,7 +64,7 @@ export function Search() {
     },
   })
 
-  if (!agent) return <p className="text-sm text-muted-foreground">Select an agent first.</p>
+  if (!agent) return <p className="text-sm text-muted-foreground">{t('noAgent.select')}</p>
   const err = run.error
   const activeMeta = MODES.find((m) => m.id === mode)!
 
@@ -73,10 +76,8 @@ export function Search() {
     <div className="mx-auto max-w-4xl space-y-6">
       <Card className="p-6">
         <div className="text-center mb-4">
-          <h2 className="text-lg font-semibold">Search</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            $0.0012 per call · $0.0012 × N for batch
-          </p>
+          <h2 className="text-lg font-semibold">{t('search.title')}</h2>
+          <p className="text-xs text-muted-foreground mt-1">{t('search.subtitle')}</p>
         </div>
 
         <div className="rounded-lg border border-border bg-muted/30 p-1 grid grid-cols-4 gap-1.5 mb-4">
@@ -89,13 +90,13 @@ export function Search() {
                 onClick={() => setMode(m.id)}
                 className={`py-2.5 px-3 text-sm rounded-md transition-colors text-center ${active ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                {m.label}
+                {t(m.labelKey)}
               </button>
             )
           })}
         </div>
 
-        <p className="text-xs text-muted-foreground text-center mb-4">{activeMeta.desc}</p>
+        <p className="text-xs text-muted-foreground text-center mb-4">{t(activeMeta.descKey)}</p>
 
         {mode === 'google_batch_search' ? (
           <BatchForm queries={batch} onChange={setBatch} />
@@ -109,7 +110,7 @@ export function Search() {
         )}
 
         <Button className="w-full mt-4" onClick={() => run.mutate()} disabled={run.isPending || disabled}>
-          {run.isPending ? 'Searching…' : `Run ${mode}`}
+          {run.isPending ? t('search.running') : t('search.run', { mode })}
         </Button>
         {err ? <div className="mt-3"><ErrorView error={err} /></div> : null}
       </Card>

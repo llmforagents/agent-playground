@@ -5,6 +5,7 @@ import { useModels } from '@/presentation/hooks/useModels'
 import { Section } from '@/presentation/components/Section'
 import { ErrorView } from '@/presentation/components/ErrorView'
 import { CopyButton } from '@/presentation/components/CopyButton'
+import { useT } from '@/presentation/hooks/useT'
 
 function fmtPrice(p: number): string {
   if (!Number.isFinite(p) || p < 0) return 'variable'
@@ -12,6 +13,7 @@ function fmtPrice(p: number): string {
 }
 
 export function Models() {
+  const t = useT()
   const [search, setSearch] = useState('')
   const q = useModels()
   const err = q.error
@@ -29,11 +31,11 @@ export function Models() {
 
   return (
     <div>
-      <Section title={`Models${q.data ? ` (${filtered.length}/${q.data.models.length})` : ''}`}>
+      <Section title={`${t('models.title')}${q.data ? ` (${filtered.length}/${q.data.models.length})` : ''}`}>
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by slug, name or provider…"
+          placeholder={t('models.search')}
           className="max-w-sm mb-4"
         />
         {err ? <ErrorView error={err} /> : null}
@@ -45,7 +47,7 @@ export function Models() {
                   <div className="font-medium truncate">{m.displayName}</div>
                   <div className="text-xs text-muted-foreground font-mono truncate">{m.slug}</div>
                 </div>
-                <CopyButton text={m.slug} label="Copy slug" size="sm" variant="ghost" />
+                <CopyButton text={m.slug} label={t('models.copySlug')} size="sm" variant="ghost" />
               </div>
               <div className="text-xs text-muted-foreground">
                 {m.provider ? <>prov <b>{m.provider}</b> • </> : null}
@@ -57,7 +59,7 @@ export function Models() {
             </Card>
           ))}
           {filtered.length === 0 && q.data ? (
-            <p className="text-sm text-muted-foreground">No models match that search.</p>
+            <p className="text-sm text-muted-foreground">{t('models.noMatch')}</p>
           ) : null}
         </div>
       </Section>

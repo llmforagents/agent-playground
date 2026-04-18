@@ -12,15 +12,17 @@ import { useAppContainer } from '@/presentation/hooks/useAppContainer'
 import { useActiveAgent } from '@/presentation/hooks/useActiveAgent'
 import type { ProxyTier, OneShotTool } from '@/domain/scraper'
 import { ONE_SHOT_TOOLS } from '@/domain/scraper'
+import { useT } from '@/presentation/hooks/useT'
+import type { MessageKey } from '@/domain/i18n'
 import type { McpToolResult } from '@/infrastructure/schemas/mcp'
 
-const TOOL_DESCRIPTIONS: Record<OneShotTool, string> = {
-  fetch_html: 'Raw HTML of the page',
-  markdown: 'Page rendered as Markdown',
-  links: 'All links from the page',
-  screenshot: 'PNG screenshot',
-  pdf: 'Printable PDF',
-  extract: 'Extract fields with CSS selectors',
+const TOOL_DESCRIPTION_KEYS: Record<OneShotTool, MessageKey> = {
+  fetch_html: 'scraper.descFetchHtml',
+  markdown: 'scraper.descMarkdown',
+  links: 'scraper.descLinks',
+  screenshot: 'scraper.descScreenshot',
+  pdf: 'scraper.descPdf',
+  extract: 'scraper.descExtract',
 }
 
 const TOOL_COSTS: Record<OneShotTool, Record<ProxyTier, number>> = {
@@ -37,6 +39,7 @@ function fmtCost(usd: number): string {
 }
 
 export function ScraperOneShot() {
+  const t = useT()
   const agent = useActiveAgent()
   const container = useAppContainer()
   const [tool, setTool] = useState<OneShotTool>('fetch_html')
@@ -55,64 +58,62 @@ export function ScraperOneShot() {
     },
   })
 
-  if (!agent) return <p className="text-sm text-muted-foreground">Select an agent first.</p>
+  if (!agent) return <p className="text-sm text-muted-foreground">{t('noAgent.select')}</p>
   const err = run.error
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <Card className="p-6">
         <div className="text-center mb-4">
-          <h2 className="text-lg font-semibold">Scraper · one-shot</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Six tools to fetch a URL. Each call is billed individually.
-          </p>
+          <h2 className="text-lg font-semibold">{t('scraper.oneshotTitle')}</h2>
+          <p className="text-xs text-muted-foreground mt-1">{t('scraper.oneshotSubtitle')}</p>
         </div>
 
         <div className="rounded-lg border border-border bg-muted/30 p-1 grid grid-cols-3 md:grid-cols-6 gap-1.5 mb-4">
-          {ONE_SHOT_TOOLS.map((t) => {
-            const isActive = tool === t
+          {ONE_SHOT_TOOLS.map((tl) => {
+            const isActive = tool === tl
             return (
               <button
-                key={t}
+                key={tl}
                 type="button"
-                onClick={() => setTool(t)}
+                onClick={() => setTool(tl)}
                 className={`py-2.5 px-3 text-sm rounded-md transition-colors text-center ${
                   isActive
                     ? 'bg-foreground/10 text-foreground shadow-sm font-medium'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {t}
+                {tl}
               </button>
             )
           })}
         </div>
 
-        <p className="text-xs text-muted-foreground text-center mb-1">{TOOL_DESCRIPTIONS[tool]}</p>
+        <p className="text-xs text-muted-foreground text-center mb-1">{t(TOOL_DESCRIPTION_KEYS[tool])}</p>
         <p className="text-xs text-muted-foreground text-center mb-4 tabular-nums">
           none <b className="text-foreground">{fmtCost(TOOL_COSTS[tool].none)}</b>
           <span className="mx-2">·</span>
           datacenter <b className="text-foreground">{fmtCost(TOOL_COSTS[tool].datacenter)}</b>
           <span className="mx-2">·</span>
           residential <b className="text-foreground">{fmtCost(TOOL_COSTS[tool].residential)}</b>
-          <span className="ml-2 text-[10px] opacity-70">(per call)</span>
+          <span className="ml-2 text-[10px] opacity-70">{t('scraper.perCall')}</span>
         </p>
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-muted-foreground block mb-1">URL</label>
+            <label className="text-xs text-muted-foreground block mb-1">{t('scraper.url')}</label>
             <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground block mb-1">Proxy tier</label>
+            <label className="text-xs text-muted-foreground block mb-1">{t('scraper.proxyTier')}</label>
             <ProxyTierSelector value={tier} onChange={setTier} />
           </div>
 
           {(tool === 'markdown' || tool === 'screenshot') ? (
             <div>
               <label className="text-xs text-muted-foreground block mb-1">
-                Selector <span className="normal-case text-muted-foreground/60">(optional)</span>
+                {t('scraper.selector')} <span className="normal-case text-muted-foreground/60">{t('scraper.optional')}</span>
               </label>
               <Input value={selectorText} onChange={(e) => setSelectorText(e.target.value)} placeholder="#main, article, .content" />
             </div>
@@ -121,7 +122,7 @@ export function ScraperOneShot() {
           {tool === 'extract' ? (
             <div>
               <label className="text-xs text-muted-foreground block mb-1">
-                Selectors <span className="normal-case text-muted-foreground/60">(JSON: name → CSS)</span>
+                {t('scraper.selectors')} <span className="normal-case text-muted-foreground/60">{t('scraper.selectorsHint')}</span>
               </label>
               <Textarea
                 value={extractMap}
@@ -133,7 +134,7 @@ export function ScraperOneShot() {
           ) : null}
 
           <Button className="w-full" onClick={() => run.mutate()} disabled={run.isPending}>
-            {run.isPending ? 'Running…' : `Run ${tool}`}
+            {run.isPending ? t('scraper.running') : t('scraper.run', { tool })}
           </Button>
           {err ? <ErrorView error={err} /> : null}
         </div>
@@ -142,8 +143,8 @@ export function ScraperOneShot() {
       {run.data ? (
         <section>
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h2 className="text-lg font-semibold">Result</h2>
-            <CopyButton text={formatResultForCopy(tool, run.data)} label="Copy result" size="sm" variant="secondary" />
+            <h2 className="text-lg font-semibold">{t('scraper.result')}</h2>
+            <CopyButton text={formatResultForCopy(tool, run.data)} label={t('scraper.copyResult')} size="sm" variant="secondary" />
           </div>
           <Card className="p-4">
             <Preview tool={tool} result={run.data} />

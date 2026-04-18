@@ -1,12 +1,15 @@
 import { MenuIcon, MoonIcon, SunIcon } from 'lucide-react'
 import { AgentSwitcher } from '@/presentation/components/AgentSwitcher'
 import { BalanceBadge } from '@/presentation/components/BalanceBadge'
+import { LocaleSwitcher } from '@/presentation/components/LocaleSwitcher'
 import { Button } from '@/presentation/components/ui/button'
 import { useAppStore } from '@/presentation/hooks/useAppStore'
+import { useT } from '@/presentation/hooks/useT'
 
 type Props = Readonly<{ onOpenDrawer?: () => void }>
 
 export function Topbar({ onOpenDrawer }: Props) {
+  const t = useT()
   const theme = useAppStore((s) => s.theme)
   const toggle = useAppStore((s) => s.toggleTheme)
   const isDark = theme === 'dark'
@@ -16,8 +19,8 @@ export function Topbar({ onOpenDrawer }: Props) {
         size="sm"
         variant="ghost"
         onClick={onOpenDrawer}
-        aria-label="Open navigation"
-        title="Navigation"
+        aria-label={t('topbar.openNav')}
+        title={t('topbar.navigation')}
         className="size-9 p-0 md:hidden flex-shrink-0"
       >
         <MenuIcon className="size-5" />
@@ -26,13 +29,16 @@ export function Topbar({ onOpenDrawer }: Props) {
         <AgentSwitcher />
       </div>
       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+        <div className="hidden sm:block">
+          <LocaleSwitcher />
+        </div>
         <BalanceBadge />
         <Button
           size="sm"
           variant="ghost"
           onClick={toggle}
-          aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-          title={isDark ? 'Switch to light' : 'Switch to dark'}
+          aria-label={isDark ? t('topbar.switchToLight') : t('topbar.switchToDark')}
+          title={isDark ? t('topbar.switchToLight') : t('topbar.switchToDark')}
           className="size-9 p-0"
         >
           {isDark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
