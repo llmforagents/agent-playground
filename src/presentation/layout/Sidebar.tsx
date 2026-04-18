@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 
 const links: readonly { to: string; label: string }[] = [
   { to: '/', label: 'Home' },
+  { to: '/guide', label: 'Guide' },
   { to: '/agents', label: 'Agents' },
   { to: '/models', label: 'Models' },
   { to: '/chat', label: 'Chat' },
