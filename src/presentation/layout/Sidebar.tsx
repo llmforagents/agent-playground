@@ -2,7 +2,6 @@ import { NavLink } from 'react-router-dom'
 
 const links: readonly { to: string; label: string }[] = [
   { to: '/', label: 'Home' },
-  { to: '/guide', label: 'Guide' },
   { to: '/agents', label: 'Agents' },
   { to: '/models', label: 'Models' },
   { to: '/chat', label: 'Chat' },
@@ -12,6 +11,7 @@ const links: readonly { to: string; label: string }[] = [
   { to: '/scraper/sessions', label: 'Scraper (sessions)' },
   { to: '/search', label: 'Search' },
   { to: '/settings', label: 'Settings' },
+  { to: '/guide', label: 'Guide' },
 ]
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
