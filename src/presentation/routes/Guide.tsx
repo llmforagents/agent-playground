@@ -30,13 +30,6 @@ const TIPS: readonly { titleKey: MessageKey; bodyKey: MessageKey }[] = [
   { titleKey: 'guide.tip6Title', bodyKey: 'guide.tip6Body' },
 ]
 
-const TROUBLES: readonly { titleKey: MessageKey; bodyKey: MessageKey }[] = [
-  { titleKey: 'guide.ts1Title', bodyKey: 'guide.ts1Body' },
-  { titleKey: 'guide.ts2Title', bodyKey: 'guide.ts2Body' },
-  { titleKey: 'guide.ts3Title', bodyKey: 'guide.ts3Body' },
-  { titleKey: 'guide.ts4Title', bodyKey: 'guide.ts4Body' },
-]
-
 export function Guide(): React.JSX.Element {
   const t = useT()
   return (
@@ -84,17 +77,6 @@ export function Guide(): React.JSX.Element {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('guide.troubleshooting')}</h2>
-        <Card className="p-4 text-sm space-y-2">
-          {TROUBLES.map((ts, i) => (
-            <div key={ts.titleKey} className={i > 0 ? 'pt-2 border-t border-border' : ''}>
-              <b>{t(ts.titleKey)}</b>
-              <p className="text-muted-foreground mt-0.5">{t(ts.bodyKey)}</p>
-            </div>
-          ))}
-        </Card>
-      </section>
     </div>
   )
 }
