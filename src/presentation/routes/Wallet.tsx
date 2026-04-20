@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Button } from '@/presentation/components/ui/button'
@@ -9,11 +9,18 @@ import { useAppContainer } from '@/presentation/hooks/useAppContainer'
 import { useActiveAgent } from '@/presentation/hooks/useActiveAgent'
 import { useBalance } from '@/presentation/hooks/useBalance'
 import { useWallets } from '@/presentation/hooks/useWallets'
+import { useAppStore } from '@/presentation/hooks/useAppStore'
 import { useT } from '@/presentation/hooks/useT'
 import type { GenerateWalletResponse } from '@/infrastructure/schemas/rest'
 
-const POLL_INTERVAL_MS = 8_000
+const FAST_POLL_MS = 3_000
+const SLOW_POLL_MS = 10_000
+const POLL_SLOW_AFTER_MS = 60_000
 const MAX_POLL_MS = 10 * 60_000
+
+function nextPollMs(elapsedMs: number): number {
+  return elapsedMs < POLL_SLOW_AFTER_MS ? FAST_POLL_MS : SLOW_POLL_MS
+}
 const CHAINS = ['solana', 'polygon'] as const
 const TOKENS = ['USDC', 'USDT'] as const
 
@@ -36,9 +43,16 @@ export function Wallet() {
   const wallets = useWallets()
   const [chain, setChain] = useState<(typeof CHAINS)[number]>('solana')
   const [token, setToken] = useState<(typeof TOKENS)[number]>('USDC')
-  const [watching, setWatching] = useState(false)
+  const depositWatch = useAppStore((s) => s.depositWatch)
+  const startDepositWatch = useAppStore((s) => s.startDepositWatch)
+  const stopDepositWatch = useAppStore((s) => s.stopDepositWatch)
   const [elapsedMs, setElapsedMs] = useState(0)
-  const watchStartRef = useRef<{ startCents: number; startedAt: number } | null>(null)
+
+  // Only consider the watch live if it belongs to the currently active agent
+  // and hasn't exceeded the hard cap. Otherwise clear it on mount.
+  const watching = depositWatch !== null
+    && depositWatch.agentId === agent?.id
+    && (Date.now() - depositWatch.startedAt) < MAX_POLL_MS
 
   const gen = useMutation({
     mutationFn: async (): Promise<GenerateWalletResponse> => {
@@ -76,46 +90,78 @@ export function Wallet() {
     },
   })
 
+  // Garbage-collect a stale watch belonging to a different agent or expired.
   useEffect(() => {
-    if (!watching) return
-    const pollId = setInterval(() => { void balance.refetch() }, POLL_INTERVAL_MS)
-    const tickId = setInterval(() => {
-      const started = watchStartRef.current?.startedAt
-      if (started) setElapsedMs(Date.now() - started)
-    }, 1000)
-    return () => { clearInterval(pollId); clearInterval(tickId) }
-  }, [watching, balance])
+    if (!depositWatch) return
+    const stale = depositWatch.agentId !== agent?.id
+      || (Date.now() - depositWatch.startedAt) >= MAX_POLL_MS
+    if (stale) stopDepositWatch()
+  }, [depositWatch, agent, stopDepositWatch])
 
+  // Self-scheduling poll loop with adaptive backoff (3s for the first minute,
+  // then 10s). Using setTimeout instead of setInterval so we can change the
+  // cadence without tearing down and rebuilding the effect.
   useEffect(() => {
-    if (!watching || !balance.data || !watchStartRef.current) return
-    const current = balance.data.availableUsdCents
-    const start = watchStartRef.current.startCents
-    if (current > start) {
-      toast.success(t('wallet.depositReceived'), {
-        description: `${fmtUsd(start)} → ${fmtUsd(current)} (+${fmtUsd(current - start)})`,
-      })
-      setWatching(false)
-      watchStartRef.current = null
-    } else if (Date.now() - watchStartRef.current.startedAt > MAX_POLL_MS) {
-      toast.warning(t('wallet.stoppedWatching'), { description: t('wallet.stoppedWatchingBody', { minutes: Math.round(MAX_POLL_MS / 60_000) }) })
-      setWatching(false)
-      watchStartRef.current = null
+    if (!watching || !depositWatch) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const scheduleNext = (): void => {
+      const elapsed = Date.now() - depositWatch.startedAt
+      const delay = nextPollMs(elapsed)
+      timer = setTimeout(async () => {
+        if (cancelled) return
+        await balance.refetch()
+        if (!cancelled) scheduleNext()
+      }, delay)
     }
-  }, [balance.data, watching, t])
+    scheduleNext()
+    return () => { cancelled = true; if (timer !== null) clearTimeout(timer) }
+  }, [watching, depositWatch, balance])
+
+  // Tick the elapsed counter for the UI label.
+  useEffect(() => {
+    if (!watching || !depositWatch) { setElapsedMs(0); return }
+    setElapsedMs(Date.now() - depositWatch.startedAt)
+    const id = setInterval(() => {
+      setElapsedMs(Date.now() - depositWatch.startedAt)
+    }, 1000)
+    return () => clearInterval(id)
+  }, [watching, depositWatch])
+
+  // Detection: compare cumulative deposits rather than available balance, so
+  // a concurrent chat spend in another tab can't mask (or falsely trigger) a
+  // deposit notification.
+  useEffect(() => {
+    if (!watching || !balance.data || !depositWatch) return
+    const current = Number(balance.data.totalDepositedUsd) || 0
+    const start = depositWatch.startDepositedUsd
+    if (current > start + 1e-6) {
+      const availCents = balance.data.availableUsdCents
+      const diffUsd = current - start
+      toast.success(t('wallet.depositReceived'), {
+        description: `+$${diffUsd.toFixed(2)} · ${t('wallet.availableBalance')}: ${fmtUsd(availCents)}`,
+      })
+      stopDepositWatch()
+    } else if (Date.now() - depositWatch.startedAt > MAX_POLL_MS) {
+      toast.warning(t('wallet.stoppedWatching'), { description: t('wallet.stoppedWatchingBody', { minutes: Math.round(MAX_POLL_MS / 60_000) }) })
+      stopDepositWatch()
+    }
+  }, [balance.data, watching, depositWatch, t, stopDepositWatch])
 
   const startWatching = (): void => {
-    if (!balance.data) { toast.error(t('wallet.watchingStart.warning')); return }
-    watchStartRef.current = { startCents: balance.data.availableUsdCents, startedAt: Date.now() }
+    if (!agent || !balance.data) { toast.error(t('wallet.watchingStart.warning')); return }
+    const startDepositedUsd = Number(balance.data.totalDepositedUsd) || 0
+    startDepositWatch({ agentId: agent.id, startedAt: Date.now(), startDepositedUsd })
     setElapsedMs(0)
-    setWatching(true)
   }
-  const stopWatching = (): void => { setWatching(false); watchStartRef.current = null }
+  const stopWatching = (): void => { stopDepositWatch() }
 
   if (!agent) return <p className="text-sm text-muted-foreground">{t('noAgent.select')}</p>
 
   const err = gen.error
   const elapsedSec = Math.floor(elapsedMs / 1000)
-  const nextPollIn = POLL_INTERVAL_MS - (elapsedMs % POLL_INTERVAL_MS)
+  const pollIntervalMs = nextPollMs(elapsedMs)
+  const nextPollIn = pollIntervalMs - (elapsedMs % pollIntervalMs)
   const list = wallets.listQuery.data ?? []
 
   return (
