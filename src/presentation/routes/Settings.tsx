@@ -75,7 +75,7 @@ export function Settings() {
                   key={th}
                   type="button"
                   onClick={() => { if (theme !== th) toggleTheme() }}
-                  className={`py-1.5 px-6 text-sm rounded-md transition-colors ${theme === th ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:text-foreground'}`}
+                  className={`py-1.5 px-6 text-sm rounded-md transition-colors ${theme === th ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                 >
                   {th === 'light' ? t('settings.light') : t('settings.dark')}
                 </button>
@@ -93,7 +93,7 @@ export function Settings() {
                   key={l}
                   type="button"
                   onClick={() => setLocale(l)}
-                  className={`py-1.5 px-4 text-sm rounded-md transition-colors ${locale === l ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:text-foreground'}`}
+                  className={`py-1.5 px-4 text-sm rounded-md transition-colors ${locale === l ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                 >
                   {LOCALE_LABELS[l]}
                 </button>

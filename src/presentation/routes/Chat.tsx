@@ -159,7 +159,7 @@ export function Chat() {
             <button
               type="button"
               onClick={() => setToolsOn((v) => !v)}
-              className={`h-9 rounded-lg border px-3 text-xs flex items-center gap-1.5 transition-colors ${toolsOn ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground'}`}
+              className={`h-9 rounded-lg border px-3 text-xs flex items-center gap-1.5 transition-colors ${toolsOn ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
               title={toolsOn ? t('chat.toolsOnHint') : t('chat.toolsOffHint')}
             >
               <WrenchIcon className="size-3.5" />

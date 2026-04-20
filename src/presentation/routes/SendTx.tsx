@@ -101,14 +101,14 @@ export function SendTx() {
           <button
             type="button"
             onClick={() => setMode('erc20')}
-            className={`py-1.5 text-sm rounded-md transition-colors ${mode === 'erc20' ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`py-1.5 text-sm rounded-md transition-colors ${mode === 'erc20' ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
           >
             {t('tx.send.modeErc20')}
           </button>
           <button
             type="button"
             onClick={() => setMode('raw')}
-            className={`py-1.5 text-sm rounded-md transition-colors ${mode === 'raw' ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`py-1.5 text-sm rounded-md transition-colors ${mode === 'raw' ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
           >
             {t('tx.send.modeRaw')}
           </button>

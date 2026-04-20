@@ -13,7 +13,7 @@ export function LocaleSwitcher() {
           onClick={() => setLocale(l)}
           aria-label={`Language: ${l.toUpperCase()}`}
           title={l === 'en' ? 'English' : 'Español'}
-          className={`px-2 h-7 text-[11px] rounded-md uppercase font-semibold transition-colors ${locale === l ? 'bg-foreground/10 text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          className={`px-2 h-7 text-[11px] rounded-md uppercase font-semibold transition-colors ${locale === l ? 'bg-foreground/10 text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
         >
           {l}
         </button>
