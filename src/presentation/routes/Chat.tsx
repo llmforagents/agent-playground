@@ -206,6 +206,10 @@ export function Chat() {
             <AgenticBlock steps={agentic.state.steps} finalText="" isRunning iteration={agentic.state.iteration} t={t} />
           ) : null}
 
+          {agentic.state.status === 'error' && agentic.state.steps.length > 0 ? (
+            <AgenticBlock steps={agentic.state.steps} finalText="" t={t} />
+          ) : null}
+
           {currentError ? (
             <div className="pt-2">
               <ErrorView error={currentError} />

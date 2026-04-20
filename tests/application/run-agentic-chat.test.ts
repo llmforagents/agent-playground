@@ -84,7 +84,7 @@ describe('runAgenticChat cost guards', () => {
     expect(chatCalls).toBe(1)
   })
 
-  it('does NOT re-invoke MCP when the model repeats the same tool call with the same args (after success)', async () => {
+  it('aborts on a second tool call after the first one succeeded (one-tool-per-turn policy)', async () => {
     let mcpCalls = 0
     const mcp: McpPort = {
       callTool: async (): Promise<Result<McpToolResult, McpError>> => {
@@ -94,15 +94,16 @@ describe('runAgenticChat cost guards', () => {
     }
     const rest = chatWith([
       { tool_calls: [tc('google_search', { q: 'x' })] },
-      { tool_calls: [tc('google_search', { q: 'x' })] }, // same args — should be guarded
-      { content: 'final answer' },
+      { tool_calls: [tc('google_news',   { q: 'y' })] }, // different tool + args — still aborts
     ])
     const events = await collect(runAgenticChat(
       { rest, mcp, key: KEY, agent: AGENT },
       { model: 'openai/gpt-4', messages: [{ role: 'user', content: 'hi' }], mode: 'native', maxIterations: 5 },
     ))
     expect(mcpCalls).toBe(1)
-    expect(events.find((e) => e.kind === 'final')).toBeDefined()
+    const aborted = events.find((e) => e.kind === 'aborted')
+    expect(aborted?.kind === 'aborted' && aborted.reason).toBe('tool_cap_reached')
+    expect(events.find((e) => e.kind === 'final')).toBeUndefined()
   })
 
   it('aborts when the model retries a previously failed tool with the same args', async () => {
@@ -127,27 +128,27 @@ describe('runAgenticChat cost guards', () => {
     expect(aborted).toBeDefined()
   })
 
-  it('respects the 3-tool-call cap', async () => {
-    let mcpCalls = 0
+  it('renders the successful tool result even when a subsequent abort fires', async () => {
     const mcp: McpPort = {
-      callTool: async (): Promise<Result<McpToolResult, McpError>> => {
-        mcpCalls++
-        return Ok({ content: [{ type: 'text' as const, text: `r${mcpCalls}` }] })
-      },
+      callTool: async (): Promise<Result<McpToolResult, McpError>> =>
+        Ok({ content: [{ type: 'image' as const, data: 'BASE64PNG', mimeType: 'image/png' }] }),
     }
     const rest = chatWith([
-      { tool_calls: [tc('google_search', { q: 'a' })] },
-      { tool_calls: [tc('google_search', { q: 'b' })] },
-      { tool_calls: [tc('google_search', { q: 'c' })] },
-      { tool_calls: [tc('google_search', { q: 'd' })] }, // 4th — cap should kick in
+      { tool_calls: [tc('generate_image', { prompt: 'astronaut' })] },
+      { tool_calls: [tc('generate_image', { prompt: 'astronaut 2' })] }, // policy violation
     ])
     const events = await collect(runAgenticChat(
       { rest, mcp, key: KEY, agent: AGENT },
-      { model: 'openai/gpt-4', messages: [{ role: 'user', content: 'hi' }], mode: 'native', maxIterations: 10 },
+      { model: 'openai/gpt-4', messages: [{ role: 'user', content: 'hi' }], mode: 'native' },
     ))
-    expect(mcpCalls).toBe(3)
+    // The first generate_image succeeded and its raw payload must be available
+    // in the event stream so the UI can render the PNG, even though the run
+    // was aborted by the one-tool-per-turn policy on the second call.
+    const toolResult = events.find((e) => e.kind === 'tool_result' && e.ok)
+    expect(toolResult).toBeDefined()
+    expect(toolResult?.kind === 'tool_result' && (toolResult.raw as { content: { type: string }[] }).content[0]?.type).toBe('image')
     const aborted = events.find((e) => e.kind === 'aborted')
-    expect(aborted?.kind === 'aborted' && aborted.reason).toBe('tool_cap_reached')
+    expect(aborted).toBeDefined()
   })
 
   it('aborts on unknown tool (does not keep calling the model)', async () => {

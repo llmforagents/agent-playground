@@ -278,6 +278,20 @@ export async function* runAgenticChat(
     // step.kind === 'tool_call'
     yield { kind: 'tool_call', callId: step.callId, toolName: step.name, args: step.args }
 
+    // Cost guard 0 (strongest): playground policy is 1 tool call per user
+    // turn. If the previous chat completion returned any successful tool
+    // call, the model MUST respond to the user with text now. Another
+    // tool_call means the model is looping and we stop before paying for
+    // further iterations.
+    const hadPriorSuccess = toolHistory.some(
+      (h) => h.ok && !h.resultText.startsWith('Already called'),
+    )
+    if (hadPriorSuccess) {
+      const detail = `Playground policy: one tool call per turn. The model already got a successful result but tried to call "${step.name}" instead of answering. Stopped to prevent further charges.`
+      yield { kind: 'aborted', reason: 'tool_cap_reached', toolName: step.name, detail }
+      return
+    }
+
     const def = findChatTool(step.name)
     if (!def) {
       // Unknown tool — abort. Calling the LLM again would just cost tokens
