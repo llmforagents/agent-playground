@@ -91,13 +91,15 @@ export const GenerateImageParamsSchema = z.object({
 })
 
 export const EditImageParamsSchema = z.object({
-  instruction: z.string().min(1).max(4096),
+  prompt: z.string().min(1).max(4096),
   image: ImageSourceField,
-  aspect_ratio: z.string().max(16).optional(),
+  aspect_ratio: z.enum([
+    'match_input_image', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3',
+  ]).optional(),
 })
 
 export const AnalyzeImageParamsSchema = z.object({
-  question: z.string().min(1).max(4096),
+  prompt: z.string().min(1).max(4096),
   image: ImageSourceField,
 })
 

@@ -183,15 +183,19 @@ export const CHAT_TOOLS: readonly ChatToolDef[] = [
       type: 'function',
       function: {
         name: 'edit_image',
-        description: 'Edit an existing image from a text instruction. Returns a base64 PNG. Use when the user wants to modify an image (remove background, add/remove elements, restyle).',
+        description: 'Edit an existing image from a text prompt. Returns a base64 PNG. Use when the user wants to modify an image (remove background, add/remove elements, restyle).',
         parameters: {
           type: 'object',
           properties: {
-            instruction: { type: 'string', description: 'What to change (max 4096 chars)' },
+            prompt: { type: 'string', description: 'What to change in the image (max 4096 chars)' },
             image: { type: 'string', description: 'Source image: either an https URL or a base64 data URI' },
-            aspect_ratio: { type: 'string', description: 'Optional aspect ratio, e.g. "1:1", "16:9", "4:3"' },
+            aspect_ratio: {
+              type: 'string',
+              enum: ['match_input_image', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
+              description: 'Optional aspect ratio',
+            },
           },
-          required: ['instruction', 'image'],
+          required: ['prompt', 'image'],
         },
       },
     },
@@ -208,10 +212,10 @@ export const CHAT_TOOLS: readonly ChatToolDef[] = [
         parameters: {
           type: 'object',
           properties: {
-            question: { type: 'string', description: 'What to ask about the image (max 4096 chars)' },
+            prompt: { type: 'string', description: 'What to ask about the image (max 4096 chars)' },
             image: { type: 'string', description: 'Source image: either an https URL or a base64 data URI' },
           },
-          required: ['question', 'image'],
+          required: ['prompt', 'image'],
         },
       },
     },

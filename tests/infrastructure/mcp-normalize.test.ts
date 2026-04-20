@@ -40,13 +40,25 @@ describe('normalizeMcpResult', () => {
     expect(out.content[0]?.mimeType).toBe('image/jpeg')
   })
 
-  it('leaves plain text responses untouched (e.g. analyze_image)', () => {
+  it('leaves plain text responses untouched (e.g. error messages)', () => {
     const raw = {
       content: [{ type: 'text', text: 'A red dot on white background.' }],
     }
     const out = normalizeMcpResult(raw) as { content: { type: string; text: string }[] }
     expect(out.content[0]?.type).toBe('text')
     expect(out.content[0]?.text).toBe('A red dot on white background.')
+  })
+
+  it('unwraps the text field from a JSON-wrapped text response (analyze_image pattern)', () => {
+    const raw = {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({ text: 'A black puppy sitting on wooden planks.', costCents: 0.6 }),
+      }],
+    }
+    const out = normalizeMcpResult(raw) as { content: { type: string; text: string }[] }
+    expect(out.content[0]?.type).toBe('text')
+    expect(out.content[0]?.text).toBe('A black puppy sitting on wooden planks.')
   })
 
   it('leaves native image responses untouched', () => {

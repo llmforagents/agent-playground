@@ -83,6 +83,15 @@ export class McpClient implements McpPort {
         console.debug('[mcp] validation failed', { issues: parsed.error.issues, raw: normalized })
         return Err({ kind: 'validation', issues: zodIssuesToZodLike(parsed.error.issues) })
       }
+      // MCP servers signal per-tool failures with isError:true + a text item
+      // explaining what went wrong, even though the HTTP call and JSON-RPC
+      // envelope are both 200/OK. Surface that as a normal tool failure so
+      // the cost guards trigger and the user sees the error.
+      if (parsed.data.isError) {
+        const first = parsed.data.content[0]
+        const msg = first?.type === 'text' ? first.text : 'Tool reported an error'
+        return Err({ kind: 'upstream_error', status: 502, body: msg })
+      }
       return Ok(parsed.data)
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') {
@@ -133,6 +142,12 @@ export function normalizeMcpResult(raw: unknown): unknown {
                 ? obj['mime_type']
                 : 'image/png',
           }
+        }
+        // analyze_image and friends wrap the answer as
+        // { "text": "...actual answer...", "costCents": n }. Unwrap so the
+        // user sees the answer, not the JSON stringification.
+        if (typeof obj['text'] === 'string') {
+          return { type: 'text', text: obj['text'] }
         }
       }
     }

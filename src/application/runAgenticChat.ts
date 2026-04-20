@@ -353,13 +353,15 @@ export async function* runAgenticChat(
     yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: true, summary, raw: mcpRes.value }
 
     // Short-circuit for terminal tools: image tools return the final answer
-    // DIRECTLY (the PNG the user asked for, rendered inline). Skipping the
-    // synthesis round saves a whole chat.completion turn — notably important
-    // because otherwise the giant base64 payload gets fed back to the model,
-    // inflating input tokens by 100KB+. Also covers analyze_image: its text
-    // answer is already visible in the tool card.
+    // DIRECTLY — a PNG for generate/edit, text for analyze. Skipping the
+    // synthesis round saves a whole chat.completion turn. For analyze_image
+    // we surface the text as the final answer so it reads as the assistant's
+    // reply; for generate/edit the image is already rendered inline and
+    // finalText stays empty.
     if (def.category === 'image') {
-      yield { kind: 'final', text: '', meta: lastMeta }
+      const first = mcpRes.value.content[0]
+      const finalText = first?.type === 'text' ? first.text : ''
+      yield { kind: 'final', text: finalText, meta: lastMeta }
       return
     }
   }

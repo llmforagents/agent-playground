@@ -263,11 +263,11 @@ function buildParams(a: BuildArgs): unknown {
       return out
     }
     case 'edit_image': {
-      const out: Record<string, unknown> = { instruction: a.instruction, image: a.sourceImage }
+      const out: Record<string, unknown> = { prompt: a.instruction, image: a.sourceImage }
       if (a.aspect) out['aspect_ratio'] = a.aspect
       return out
     }
     case 'analyze_image':
-      return { question: a.question, image: a.sourceImage }
+      return { prompt: a.question, image: a.sourceImage }
   }
 }
