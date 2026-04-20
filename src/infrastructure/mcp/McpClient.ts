@@ -95,7 +95,7 @@ export class McpClient implements McpPort {
   }
 }
 
-function normalizeMcpResult(raw: unknown): unknown {
+export function normalizeMcpResult(raw: unknown): unknown {
   if (!raw || typeof raw !== 'object') return raw
   const r = raw as Record<string, unknown>
   const content = r['content']
@@ -111,9 +111,38 @@ function normalizeMcpResult(raw: unknown): unknown {
     if (copy['type'] === 'image' && typeof copy['data'] !== 'string' && typeof copy['image'] === 'string') {
       copy['data'] = copy['image']
     }
+    // llm4agents image tools return a text content whose string IS a JSON
+    // object carrying `imageBase64`. Promote those items to the standard
+    // { type: 'image', data, mimeType } shape so downstream rendering works.
+    if (copy['type'] === 'text' && typeof copy['text'] === 'string') {
+      const parsed = tryParseJson(copy['text'])
+      if (parsed && typeof parsed === 'object') {
+        const obj = parsed as Record<string, unknown>
+        const b64 = typeof obj['imageBase64'] === 'string'
+          ? obj['imageBase64']
+          : typeof obj['image_base64'] === 'string'
+            ? obj['image_base64']
+            : null
+        if (b64) {
+          return {
+            type: 'image',
+            data: b64,
+            mimeType: typeof obj['mimeType'] === 'string'
+              ? obj['mimeType']
+              : typeof obj['mime_type'] === 'string'
+                ? obj['mime_type']
+                : 'image/png',
+          }
+        }
+      }
+    }
     return copy
   })
   return { ...r, content: normalizedContent }
+}
+
+function tryParseJson(s: string): unknown {
+  try { return JSON.parse(s) } catch { return null }
 }
 
 function describeContent(raw: unknown): readonly string[] {
