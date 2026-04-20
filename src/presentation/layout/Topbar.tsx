@@ -14,7 +14,7 @@ export function Topbar({ onOpenDrawer }: Props) {
   const toggle = useAppStore((s) => s.toggleTheme)
   const isDark = theme === 'dark'
   return (
-    <header className="h-14 border-b border-border bg-background flex items-center gap-2 px-3 md:px-4 md:gap-3">
+    <header className="relative h-14 border-b border-border bg-background flex items-center gap-2 px-3 md:px-4 md:gap-3">
       <Button
         size="sm"
         variant="ghost"
@@ -27,6 +27,12 @@ export function Topbar({ onOpenDrawer }: Props) {
       </Button>
       <div className="min-w-0 flex-1 flex items-center gap-2 md:gap-3">
         <AgentSwitcher />
+      </div>
+      <div
+        aria-hidden
+        className="hidden md:block absolute left-1/2 -translate-x-1/2 font-bold text-xl tracking-tight pointer-events-none select-none"
+      >
+        LLM4Agents
       </div>
       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
         <div className="hidden sm:block">
