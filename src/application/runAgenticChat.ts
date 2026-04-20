@@ -320,7 +320,7 @@ function summarizeResult(result: McpToolResult): { summary: string; content: str
     return { summary, content: truncated }
   }
   if (first.type === 'image') {
-    return { summary: 'Screenshot captured', content: JSON.stringify({ type: 'image', mimeType: first.mimeType, note: 'Binary content not sent to model' }) }
+    return { summary: `Image returned (${first.mimeType})`, content: JSON.stringify({ type: 'image', mimeType: first.mimeType, note: 'Binary content not sent to model' }) }
   }
   if (first.type === 'resource') {
     return { summary: `Resource: ${first.resource.mimeType ?? 'unknown'}`, content: JSON.stringify({ type: 'resource', mimeType: first.resource.mimeType, note: 'Binary content not sent to model' }) }

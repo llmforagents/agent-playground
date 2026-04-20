@@ -12,6 +12,7 @@ import { Chat } from '@/presentation/routes/Chat'
 import { ScraperOneShot } from '@/presentation/routes/ScraperOneShot'
 import { ScraperSessions } from '@/presentation/routes/ScraperSessions'
 import { Search } from '@/presentation/routes/Search'
+import { Images } from '@/presentation/routes/Images'
 import { Guide } from '@/presentation/routes/Guide'
 
 export function App() {
@@ -29,6 +30,7 @@ export function App() {
             <Route path="/scraper/one-shot" element={<ScraperOneShot />} />
             <Route path="/scraper/sessions" element={<ScraperSessions />} />
             <Route path="/search" element={<Search />} />
+            <Route path="/images" element={<Images />} />
             <Route path="/guide" element={<Guide />} />
             <Route path="/health" element={<Navigate to="/settings" replace />} />
             <Route path="/settings" element={<Settings />} />

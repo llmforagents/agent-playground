@@ -2,7 +2,7 @@ import type { McpToolName } from './scraper'
 
 export type ChatToolDef = Readonly<{
   mcpName: McpToolName
-  category: 'search' | 'scraper'
+  category: 'search' | 'scraper' | 'image'
   costPerCall: string
   openai: {
     type: 'function'
@@ -154,6 +154,68 @@ export const CHAT_TOOLS: readonly ChatToolDef[] = [
       },
     },
   },
+  {
+    mcpName: 'generate_image',
+    category: 'image',
+    costPerCall: '$0.01–$0.02',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'generate_image',
+        description: 'Generate a PNG image from a text prompt. Returns a base64 PNG. Use when the user asks to create, draw, or imagine a picture. Cost: $0.01 up to 1.5 MP, $0.02 above.',
+        parameters: {
+          type: 'object',
+          properties: {
+            prompt: { type: 'string', description: 'What to draw (max 4096 chars)' },
+            width: { type: 'integer', description: 'Width in pixels (512–2048, default 1024)' },
+            height: { type: 'integer', description: 'Height in pixels (512–2048, default 1024)' },
+          },
+          required: ['prompt'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'edit_image',
+    category: 'image',
+    costPerCall: '$0.02',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'edit_image',
+        description: 'Edit an existing image from a text instruction. Returns a base64 PNG. Use when the user wants to modify an image (remove background, add/remove elements, restyle).',
+        parameters: {
+          type: 'object',
+          properties: {
+            instruction: { type: 'string', description: 'What to change (max 4096 chars)' },
+            image: { type: 'string', description: 'Source image: either an https URL or a base64 data URI' },
+            aspect_ratio: { type: 'string', description: 'Optional aspect ratio, e.g. "1:1", "16:9", "4:3"' },
+          },
+          required: ['instruction', 'image'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'analyze_image',
+    category: 'image',
+    costPerCall: '$0.006',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'analyze_image',
+        description: 'Describe or answer a question about an image (vision). Returns a text answer. Use for OCR, captions, or visual Q&A. Cheaper than generate/edit.',
+        parameters: {
+          type: 'object',
+          properties: {
+            question: { type: 'string', description: 'What to ask about the image (max 4096 chars)' },
+            image: { type: 'string', description: 'Source image: either an https URL or a base64 data URI' },
+          },
+          required: ['question', 'image'],
+        },
+      },
+    },
+  },
 ]
 
 export function findChatTool(name: string): ChatToolDef | undefined {
@@ -181,6 +243,15 @@ export function findChatTool(name: string): ChatToolDef | undefined {
   }
   if (/^to_?markdown$|^md$/.test(lower)) {
     return CHAT_TOOLS.find((t) => t.openai.function.name === 'markdown')
+  }
+  if (/^(generate|create|draw|make)_?(image|picture|img)$|^image$|^txt2img$|^text_to_image$/.test(lower)) {
+    return CHAT_TOOLS.find((t) => t.openai.function.name === 'generate_image')
+  }
+  if (/^(edit|modify|change)_?(image|picture|img)$|^img2img$/.test(lower)) {
+    return CHAT_TOOLS.find((t) => t.openai.function.name === 'edit_image')
+  }
+  if (/^(analyze|describe|caption|ocr|vision|view)_?(image|picture|img)?$/.test(lower)) {
+    return CHAT_TOOLS.find((t) => t.openai.function.name === 'analyze_image')
   }
   return undefined
 }

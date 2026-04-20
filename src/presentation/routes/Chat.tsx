@@ -342,8 +342,27 @@ function ToolStep({ step, t }: { step: Extract<AgenticStep, { kind: 'tool' }>; t
               </pre>
             </div>
           ) : null}
+          <ToolImagePreview raw={step.raw} />
         </div>
       ) : null}
+    </div>
+  )
+}
+
+function ToolImagePreview({ raw }: { raw: unknown }): React.JSX.Element | null {
+  if (!raw || typeof raw !== 'object') return null
+  const content = (raw as { content?: readonly unknown[] }).content
+  if (!Array.isArray(content)) return null
+  const first = content[0] as { type?: string; data?: string; mimeType?: string } | undefined
+  if (!first || first.type !== 'image' || !first.data || !first.mimeType) return null
+  return (
+    <div>
+      <div className="text-[10px] text-muted-foreground mb-1">image</div>
+      <img
+        src={`data:${first.mimeType};base64,${first.data}`}
+        alt="tool output"
+        className="max-w-full h-auto rounded-md border border-border"
+      />
     </div>
   )
 }

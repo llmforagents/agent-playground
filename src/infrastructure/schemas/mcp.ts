@@ -82,6 +82,25 @@ export const GoogleBatchSearchParamsSchema = z.object({
   queries: z.array(SearchCommonSchema).min(1).max(100),
 })
 
+const ImageSourceField = z.string().min(1).max(200_000)
+
+export const GenerateImageParamsSchema = z.object({
+  prompt: z.string().min(1).max(4096),
+  width: z.number().int().min(512).max(2048).optional(),
+  height: z.number().int().min(512).max(2048).optional(),
+})
+
+export const EditImageParamsSchema = z.object({
+  instruction: z.string().min(1).max(4096),
+  image: ImageSourceField,
+  aspect_ratio: z.string().max(16).optional(),
+})
+
+export const AnalyzeImageParamsSchema = z.object({
+  question: z.string().min(1).max(4096),
+  image: ImageSourceField,
+})
+
 export const SearchOrganicResultSchema = z.object({
   title: z.string(),
   link: z.string(),
@@ -138,4 +157,7 @@ export const TOOL_PARAM_SCHEMAS = {
   google_news: GoogleNewsParamsSchema,
   google_maps: GoogleMapsParamsSchema,
   google_batch_search: GoogleBatchSearchParamsSchema,
+  generate_image: GenerateImageParamsSchema,
+  edit_image: EditImageParamsSchema,
+  analyze_image: AnalyzeImageParamsSchema,
 } as const

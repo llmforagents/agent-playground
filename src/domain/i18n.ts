@@ -35,6 +35,7 @@ const EN = {
   'sidebar.scraperOneshot': 'Scraper (one-shot)',
   'sidebar.scraperSessions': 'Scraper (sessions)',
   'sidebar.search': 'Search',
+  'sidebar.images': 'Images',
   'sidebar.settings': 'Settings',
   'sidebar.guide': 'Guide',
 
@@ -186,6 +187,7 @@ const EN = {
   'chat.toolsMaxIter': 'Max 5 iterations per turn',
   'chat.toolsSearch': 'Search',
   'chat.toolsWebScraper': 'Web scraper',
+  'chat.toolsImages': 'Images',
   'chat.maxIterationsError': 'Reached max iterations (5) without a final answer. Try a simpler question or disable tools.',
 
   // Models
@@ -343,6 +345,29 @@ const EN = {
   'guide.tip5Body': 'Settings → Danger zone clears agents, wallets, history in this browser only. Does not affect the backend.',
   'guide.tip6Title': '🛠 System health',
   'guide.tip6Body': 'Settings has a "Ping /healthz" button to verify API connectivity without spending balance.',
+
+  // Images
+  'images.title': 'Image tools',
+  'images.subtitle': 'Generate, edit, or analyze images via MCP. The agentic chat can invoke these too.',
+  'images.toolGenerate': 'Generate',
+  'images.toolEdit': 'Edit',
+  'images.toolAnalyze': 'Analyze',
+  'images.descGenerate': 'Create a PNG from a text prompt. Width/height between 512–2048.',
+  'images.descEdit': 'Modify an existing image from a text instruction. Accepts URL or base64.',
+  'images.descAnalyze': 'Ask a question or describe an image (vision). Accepts URL or base64.',
+  'images.perCall': 'per call',
+  'images.prompt': 'Prompt',
+  'images.width': 'Width (px)',
+  'images.height': 'Height (px)',
+  'images.instruction': 'Edit instruction',
+  'images.instructionHint': 'e.g. remove the background, make it look like a watercolor',
+  'images.sourceImage': 'Source image (URL or data URI)',
+  'images.aspect': 'Aspect ratio',
+  'images.question': 'Question / instruction',
+  'images.run': 'Run {tool}',
+  'images.running': 'Running…',
+  'images.result': 'Result',
+  'images.download': 'Download PNG',
 } as const
 
 type Messages = typeof EN
@@ -376,6 +401,7 @@ const ES: Record<MessageKey, string> = {
   'sidebar.scraperOneshot': 'Scraper (one-shot)',
   'sidebar.scraperSessions': 'Scraper (sesiones)',
   'sidebar.search': 'Búsqueda',
+  'sidebar.images': 'Imágenes',
   'sidebar.settings': 'Ajustes',
   'sidebar.guide': 'Guía',
 
@@ -525,6 +551,7 @@ const ES: Record<MessageKey, string> = {
   'chat.toolsMaxIter': 'Máximo 5 iteraciones por turno',
   'chat.toolsSearch': 'Búsqueda',
   'chat.toolsWebScraper': 'Web scraper',
+  'chat.toolsImages': 'Imágenes',
   'chat.maxIterationsError': 'Llegamos al máximo de iteraciones (5) sin respuesta final. Probá una pregunta más simple o desactivá las tools.',
 
   // Models
@@ -682,6 +709,29 @@ const ES: Record<MessageKey, string> = {
   'guide.tip5Body': 'Ajustes → Zona peligrosa borra agentes, wallets e historial solo en este navegador. NO afecta el backend.',
   'guide.tip6Title': '🛠 Salud del sistema',
   'guide.tip6Body': 'Ajustes tiene un botón "Ping /healthz" para verificar conectividad sin gastar saldo.',
+
+  // Images
+  'images.title': 'Tools de imagen',
+  'images.subtitle': 'Generá, editá o analizá imágenes vía MCP. El chat agéntico también puede invocarlas.',
+  'images.toolGenerate': 'Generar',
+  'images.toolEdit': 'Editar',
+  'images.toolAnalyze': 'Analizar',
+  'images.descGenerate': 'Creá un PNG desde un prompt de texto. Ancho/alto entre 512 y 2048.',
+  'images.descEdit': 'Modificá una imagen existente con una instrucción textual. Acepta URL o base64.',
+  'images.descAnalyze': 'Hacé una pregunta o describí una imagen (visión). Acepta URL o base64.',
+  'images.perCall': 'por llamada',
+  'images.prompt': 'Prompt',
+  'images.width': 'Ancho (px)',
+  'images.height': 'Alto (px)',
+  'images.instruction': 'Instrucción de edición',
+  'images.instructionHint': 'ej. remové el fondo, hacelo tipo acuarela',
+  'images.sourceImage': 'Imagen fuente (URL o data URI)',
+  'images.aspect': 'Relación de aspecto',
+  'images.question': 'Pregunta / instrucción',
+  'images.run': 'Ejecutar {tool}',
+  'images.running': 'Ejecutando…',
+  'images.result': 'Resultado',
+  'images.download': 'Descargar PNG',
 }
 
 export function translate(locale: Locale, key: MessageKey, vars?: Record<string, string | number>): string {

@@ -18,7 +18,12 @@ export const SEARCH_TOOLS = [
 ] as const
 export type SearchTool = (typeof SEARCH_TOOLS)[number]
 
-export type McpToolName = OneShotTool | SessionTool | SearchTool
+export const IMAGE_TOOLS = [
+  'generate_image', 'edit_image', 'analyze_image',
+] as const
+export type ImageTool = (typeof IMAGE_TOOLS)[number]
+
+export type McpToolName = OneShotTool | SessionTool | SearchTool | ImageTool
 
 export type McpSession = Readonly<{
   id: SessionId

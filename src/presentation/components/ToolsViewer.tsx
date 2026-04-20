@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { EyeIcon, WrenchIcon, SearchIcon, GlobeIcon, XIcon } from 'lucide-react'
+import { EyeIcon, WrenchIcon, SearchIcon, GlobeIcon, XIcon, ImageIcon } from 'lucide-react'
 import { CHAT_TOOLS, type ChatToolDef } from '@/domain/chatTools'
 import { useT } from '@/presentation/hooks/useT'
 
@@ -24,6 +24,7 @@ export function ToolsViewer() {
 
   const searchTools = CHAT_TOOLS.filter((t) => t.category === 'search')
   const scraperTools = CHAT_TOOLS.filter((t) => t.category === 'scraper')
+  const imageTools = CHAT_TOOLS.filter((t) => t.category === 'image')
 
   return (
     <>
@@ -44,7 +45,7 @@ export function ToolsViewer() {
         {/* Desktop popover (≥ sm): absolute from trigger */}
         {open ? (
           <div className="hidden sm:block absolute z-40 mt-1 right-0 w-[min(26rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg overflow-hidden">
-            <ToolsList searchTools={searchTools} scraperTools={scraperTools} t={t} />
+            <ToolsList searchTools={searchTools} scraperTools={scraperTools} imageTools={imageTools} t={t} />
           </div>
         ) : null}
       </div>
@@ -76,6 +77,7 @@ export function ToolsViewer() {
             <div className="flex-1 overflow-y-auto">
               <ToolGroup title={t('chat.toolsSearch')} icon={<SearchIcon className="size-3.5" />} tools={searchTools} />
               <ToolGroup title={t('chat.toolsWebScraper')} icon={<GlobeIcon className="size-3.5" />} tools={scraperTools} />
+              <ToolGroup title={t('chat.toolsImages')} icon={<ImageIcon className="size-3.5" />} tools={imageTools} />
             </div>
             <div className="px-3 py-2 border-t border-border bg-muted/20 text-[11px] text-muted-foreground flex items-center justify-between">
               <span>{t('chat.billed')}</span>
@@ -88,7 +90,7 @@ export function ToolsViewer() {
   )
 }
 
-function ToolsList({ searchTools, scraperTools, t }: { searchTools: readonly ChatToolDef[]; scraperTools: readonly ChatToolDef[]; t: ReturnType<typeof useT> }): React.JSX.Element {
+function ToolsList({ searchTools, scraperTools, imageTools, t }: { searchTools: readonly ChatToolDef[]; scraperTools: readonly ChatToolDef[]; imageTools: readonly ChatToolDef[]; t: ReturnType<typeof useT> }): React.JSX.Element {
   return (
     <>
       <div className="px-3 py-2 border-b border-border">
@@ -99,6 +101,7 @@ function ToolsList({ searchTools, scraperTools, t }: { searchTools: readonly Cha
       <div className="max-h-[28rem] overflow-auto">
         <ToolGroup title={t('chat.toolsSearch')} icon={<SearchIcon className="size-3.5" />} tools={searchTools} />
         <ToolGroup title={t('chat.toolsWebScraper')} icon={<GlobeIcon className="size-3.5" />} tools={scraperTools} />
+        <ToolGroup title={t('chat.toolsImages')} icon={<ImageIcon className="size-3.5" />} tools={imageTools} />
       </div>
 
       <div className="px-3 py-2 border-t border-border bg-muted/20 text-[11px] text-muted-foreground flex items-center justify-between">
