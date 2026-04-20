@@ -89,7 +89,7 @@ export function Home() {
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Link to="/chat" className="block">
+        <Link to={zeroBalance ? '/wallet' : '/chat'} className="block">
           <QuickAction
             icon="💬"
             title={t('home.quickActionChat')}

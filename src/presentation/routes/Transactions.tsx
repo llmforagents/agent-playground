@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card } from '@/presentation/components/ui/card'
 import { Button } from '@/presentation/components/ui/button'
 import { useTransactions } from '@/presentation/hooks/useTransactions'
@@ -102,8 +103,15 @@ export function Transactions() {
         {q.isLoading ? (
           <Card className="p-6 text-center text-sm text-muted-foreground">{t('common.loading')}</Card>
         ) : txns.length === 0 ? (
-          <Card className="p-8 text-center text-sm text-muted-foreground">
-            {type === 'all' ? t('tx.emptyAll') : t('tx.emptyFiltered', { type })}
+          <Card className="p-8 text-center space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {type === 'all' ? t('tx.emptyAll') : t('tx.emptyFiltered', { type })}
+            </p>
+            {type === 'all' ? (
+              <Link to="/wallet" className="inline-block">
+                <Button size="sm" variant="secondary">{t('tx.emptyCta')}</Button>
+              </Link>
+            ) : null}
           </Card>
         ) : (
           <div className="rounded-lg border border-border overflow-x-auto">

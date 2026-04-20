@@ -145,6 +145,7 @@ const EN = {
   'tx.description': 'Description',
   'tx.emptyAll': 'No transactions yet.',
   'tx.emptyFiltered': 'No {type} transactions on this page.',
+  'tx.emptyCta': 'Fund a wallet to get started',
   'tx.pageOf': 'Page {page} of {total}',
   'tx.rangeOf': '{from}–{to} of {total}',
 
@@ -482,6 +483,7 @@ const ES: Record<MessageKey, string> = {
   'tx.description': 'Descripción',
   'tx.emptyAll': 'Aún no hay transacciones.',
   'tx.emptyFiltered': 'Sin transacciones de tipo {type} en esta página.',
+  'tx.emptyCta': 'Fondeá una wallet para empezar',
   'tx.pageOf': 'Página {page} de {total}',
   'tx.rangeOf': '{from}–{to} de {total}',
 

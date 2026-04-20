@@ -8,9 +8,15 @@ export function MainnetBanner() {
   const dismiss = useAppStore((s) => s.ackMainnet)
   if (ack) return null
   return (
-    <div className="bg-amber-500 text-amber-950 px-4 py-2 text-sm flex items-center justify-between">
-      <span>{t('mainnet.warning')}</span>
-      <Button size="sm" variant="secondary" onClick={dismiss}>{t('mainnet.ack')}</Button>
+    <div className="bg-amber-500 text-amber-950 px-4 py-2 text-sm flex items-center justify-between gap-3">
+      <span className="font-medium">{t('mainnet.warning')}</span>
+      <Button
+        size="sm"
+        onClick={dismiss}
+        className="bg-amber-950 text-amber-50 hover:bg-amber-900 focus-visible:ring-amber-950/40"
+      >
+        {t('mainnet.ack')}
+      </Button>
     </div>
   )
 }
