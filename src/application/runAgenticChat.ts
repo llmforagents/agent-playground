@@ -351,6 +351,17 @@ export async function* runAgenticChat(
     const { summary, content } = summarizeResult(mcpRes.value)
     toolHistory.push({ toolName: step.name, args: step.args, ok: true, resultText: content })
     yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: true, summary, raw: mcpRes.value }
+
+    // Short-circuit for terminal tools: image tools return the final answer
+    // DIRECTLY (the PNG the user asked for, rendered inline). Skipping the
+    // synthesis round saves a whole chat.completion turn — notably important
+    // because otherwise the giant base64 payload gets fed back to the model,
+    // inflating input tokens by 100KB+. Also covers analyze_image: its text
+    // answer is already visible in the tool card.
+    if (def.category === 'image') {
+      yield { kind: 'final', text: '', meta: lastMeta }
+      return
+    }
   }
 
   yield { kind: 'max_iterations' }

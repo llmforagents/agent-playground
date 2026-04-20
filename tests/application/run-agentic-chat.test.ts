@@ -128,27 +128,61 @@ describe('runAgenticChat cost guards', () => {
     expect(aborted).toBeDefined()
   })
 
-  it('renders the successful tool result even when a subsequent abort fires', async () => {
+  it('yields the failed tool_result before aborting on tool failure, so the UI can still render the attempt', async () => {
     const mcp: McpPort = {
       callTool: async (): Promise<Result<McpToolResult, McpError>> =>
-        Ok({ content: [{ type: 'image' as const, data: 'BASE64PNG', mimeType: 'image/png' }] }),
+        Err({ kind: 'upstream_error', status: 503, body: 'temporarily unavailable' }),
     }
     const rest = chatWith([
-      { tool_calls: [tc('generate_image', { prompt: 'astronaut' })] },
-      { tool_calls: [tc('generate_image', { prompt: 'astronaut 2' })] }, // policy violation
+      { tool_calls: [tc('google_search', { q: 'weather' })] },
     ])
     const events = await collect(runAgenticChat(
       { rest, mcp, key: KEY, agent: AGENT },
       { model: 'openai/gpt-4', messages: [{ role: 'user', content: 'hi' }], mode: 'native' },
     ))
-    // The first generate_image succeeded and its raw payload must be available
-    // in the event stream so the UI can render the PNG, even though the run
-    // was aborted by the one-tool-per-turn policy on the second call.
-    const toolResult = events.find((e) => e.kind === 'tool_result' && e.ok)
-    expect(toolResult).toBeDefined()
-    expect(toolResult?.kind === 'tool_result' && (toolResult.raw as { content: { type: string }[] }).content[0]?.type).toBe('image')
-    const aborted = events.find((e) => e.kind === 'aborted')
-    expect(aborted).toBeDefined()
+    const toolResult = events.find((e) => e.kind === 'tool_result')
+    expect(toolResult?.kind === 'tool_result' && toolResult.ok).toBe(false)
+    const abortedIdx = events.findIndex((e) => e.kind === 'aborted')
+    const toolResultIdx = events.findIndex((e) => e.kind === 'tool_result')
+    // tool_result must be yielded BEFORE aborted so the UI has the failed
+    // step in hand when rendering the error state.
+    expect(toolResultIdx).toBeLessThan(abortedIdx)
+  })
+
+  it('short-circuits after a successful image tool — no second chat.completion', async () => {
+    let mcpCalls = 0
+    const mcp: McpPort = {
+      callTool: async (): Promise<Result<McpToolResult, McpError>> => {
+        mcpCalls++
+        return Ok({ content: [{ type: 'image' as const, data: 'PNG', mimeType: 'image/png' }] })
+      },
+    }
+    let chatCalls = 0
+    const rest: RestApiPort = {
+      ...chatWith([]),
+      chatCompletion: async () => {
+        chatCalls++
+        return Ok({
+          data: {
+            id: 'id', object: 'chat.completion', created: 0, model: 'test',
+            choices: [{
+              index: 0,
+              message: { role: 'assistant' as const, content: null, tool_calls: [tc('generate_image', { prompt: 'astronaut' })] },
+            }],
+          },
+          meta: { costCents: 1 },
+        })
+      },
+    }
+    const events = await collect(runAgenticChat(
+      { rest, mcp, key: KEY, agent: AGENT },
+      { model: 'openai/gpt-4', messages: [{ role: 'user', content: 'draw an astronaut' }], mode: 'native' },
+    ))
+    // Only one chat.completion (iter 0) — the short-circuit saves iter 1.
+    expect(chatCalls).toBe(1)
+    expect(mcpCalls).toBe(1)
+    expect(events.find((e) => e.kind === 'final')).toBeDefined()
+    expect(events.find((e) => e.kind === 'aborted')).toBeUndefined()
   })
 
   it('aborts on unknown tool (does not keep calling the model)', async () => {
