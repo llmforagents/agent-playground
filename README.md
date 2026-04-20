@@ -1,6 +1,6 @@
 # llm4agents dashboard
 
-Local interactive dashboard to test every endpoint of the [llm4agents](https://api.llm4agents.com) API — 7 REST endpoints plus 10 MCP scraper tools — with multi-agent isolation and mainnet-safe guardrails.
+Local interactive dashboard to test every endpoint of the [llm4agents](https://api.llm4agents.com) API — 8 REST endpoints plus 17 MCP tools (scraper, search, and image) — with multi-agent isolation and mainnet-safe guardrails. EN + ES UI.
 
 ## Requirements
 
@@ -17,12 +17,35 @@ npm run dev
 
 Open `http://localhost:4301` (or `http://skywalker:4301` from a teammate's laptop once their `/etc/hosts` is configured).
 
+## Features
+
+Each route in the sidebar maps to one API surface:
+
+| Route | What it tests |
+|---|---|
+| `/agents` | Register agents, keep API keys in IndexedDB, switch the active one |
+| `/wallet` | Generate deposit addresses (Solana/Polygon × USDC/USDT), watch for deposits |
+| `/chat` | `POST /v1/chat/completions` with streaming + agentic tool-calling (native or prompt mode, auto-fallback) |
+| `/models` | `GET /api/v1/models` with search + price + context window |
+| `/scraper/one-shot` | `fetch_html`, `markdown`, `links`, `screenshot`, `pdf`, `extract` (proxy tier: none / datacenter / residential) |
+| `/scraper/sessions` | Persistent browser sessions via `session_create/exec/close/status` |
+| `/search` | `google_search`, `google_news`, `google_maps`, `google_batch_search` |
+| `/images` | **New.** `generate_image`, `edit_image`, `analyze_image` with inline PNG preview and download |
+| `/tx` | **New.** `POST /v1/tx/send` — gas-sponsored ERC-4337 transactions on Polygon (ERC-20 transfer builder + raw call) |
+| `/transactions` | `GET /api/v1/transactions` with filters + stats + pagination |
+| `/settings` | Theme, language (EN/ES), health check, wipe local data |
+| `/guide` | Step-by-step walkthrough of an end-to-end test |
+
+The agentic chat can invoke every search / scraper / image tool mid-conversation. Images are rendered inline in the assistant bubble with a PNG download link. The `/tx` endpoint is deliberately **not** exposed to the chat — moving real money on-chain needs an explicit user click.
+
 ## Workflow
 
-1. Go to `/agents` → register your first agent → the API key is persisted in this browser's IndexedDB.
-2. Go to `/wallet` → "Generate wallet" → deposit USDC/USDT on Solana or Polygon.
+1. `/agents` → register your first agent → the API key is persisted in this browser's IndexedDB.
+2. `/wallet` → "Generate wallet" → deposit USDC/USDT on Solana or Polygon.
 3. Refresh balance manually → when credited, `/chat` unlocks.
 4. Default model is `gemini-2.5-flash-lite`. Switching to a more expensive model prompts a confirmation.
+5. Try `/images` with a prompt like "a neon-lit dashboard on a developer desk", or ask the chat to generate one directly.
+6. Try `/tx` in ERC-20 mode with a small amount (e.g. 0.01 USDC) to a test address — the receipt shows `chargedCents` / `refundedCents` and a Polygonscan link.
 
 ## Scripts
 
