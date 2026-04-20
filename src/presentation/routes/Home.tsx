@@ -142,8 +142,11 @@ export function Home() {
             </ul>
           </Card>
         ) : (
-          <Card className="p-6 text-center text-sm text-muted-foreground">
-            {t('home.noTransactions')} <Link to="/wallet" className="underline">{t('sidebar.wallet')}</Link>.
+          <Card className="p-6 text-center space-y-3">
+            <p className="text-sm text-muted-foreground">{t('home.noTransactions')}</p>
+            <Link to="/wallet" className="inline-block">
+              <Button size="sm" variant="secondary">{t('home.manageWallet')}</Button>
+            </Link>
           </Card>
         )}
       </section>

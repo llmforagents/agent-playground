@@ -71,9 +71,9 @@ export function Transactions() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <StatCard label={t('tx.statsDeposits')} value={fmtUsd(totals.deposit)} accent="emerald" />
-        <StatCard label={t('tx.statsUsage')} value={fmtUsd(totals.usage)} accent="orange" />
-        <StatCard label={t('tx.statsRefunds')} value={fmtUsd(totals.refund)} accent="sky" />
+        <StatCard label={t('tx.statsDeposits')} hint={t('tx.statsHint')} value={fmtUsd(totals.deposit)} accent="emerald" />
+        <StatCard label={t('tx.statsUsage')} hint={t('tx.statsHint')} value={fmtUsd(totals.usage)} accent="orange" />
+        <StatCard label={t('tx.statsRefunds')} hint={t('tx.statsHint')} value={fmtUsd(totals.refund)} accent="sky" />
       </div>
 
       <Card className="p-4">
@@ -158,14 +158,15 @@ export function Transactions() {
   )
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string; accent: 'emerald' | 'orange' | 'sky' }): React.JSX.Element {
+function StatCard({ label, hint, value, accent }: { label: string; hint: string; value: string; accent: 'emerald' | 'orange' | 'sky' }): React.JSX.Element {
   const accentClass =
     accent === 'emerald' ? 'text-emerald-600' :
     accent === 'orange' ? 'text-orange-600' : 'text-sky-600'
   return (
     <Card className="p-4">
-      <div className="text-[10px] text-muted-foreground">{label}</div>
-      <div className={`text-2xl font-semibold tabular-nums mt-1 ${accentClass}`}>{value}</div>
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="text-[10px] text-muted-foreground/70 mb-1">{hint}</div>
+      <div className={`text-2xl font-semibold tabular-nums ${accentClass}`}>{value}</div>
     </Card>
   )
 }

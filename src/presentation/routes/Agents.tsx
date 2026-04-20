@@ -147,22 +147,23 @@ function AgentCard({
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <Button size="sm" variant="ghost" onClick={() => setRevealKey((v) => !v)}>
           {revealKey ? t('agents.hideKey') : t('agents.showKey')}
         </Button>
         <CopyButton text={agent.apiKey} label={t('agents.copyKey')} size="sm" variant="ghost" />
         <CopyButton text={agent.id} label={t('agents.copyId')} size="sm" variant="ghost" />
         <div className="flex-1" />
+        {isActive ? null : (
+          <Button size="sm" variant="secondary" onClick={onActivate}>
+            {t('agents.activate')}
+          </Button>
+        )}
         <Button
           size="sm"
-          variant={isActive ? 'default' : 'secondary'}
-          onClick={onActivate}
-          disabled={isActive}
+          onClick={handleDelete}
+          className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/40"
         >
-          {isActive ? t('agents.active') : t('agents.activate')}
-        </Button>
-        <Button size="sm" variant="destructive" onClick={handleDelete}>
           {confirmDelete ? t('agents.deleteConfirm') : t('common.delete')}
         </Button>
       </div>

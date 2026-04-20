@@ -76,7 +76,7 @@ const EN = {
   'home.quickActionTransactionsHint': 'Deposits, usage, refunds',
   'home.recentTransactions': 'Recent transactions',
   'home.viewAll': 'View all →',
-  'home.noTransactions': 'No transactions yet. Generate a deposit wallet in',
+  'home.noTransactions': 'No transactions yet. Generate a deposit wallet to get started.',
 
   // Agents
   'agents.registerTitle': 'Register new agent',
@@ -130,9 +130,10 @@ const EN = {
   'wallet.removeLocal': 'Remove local',
 
   // Transactions
-  'tx.statsDeposits': 'Deposits (page)',
-  'tx.statsUsage': 'Usage (page)',
-  'tx.statsRefunds': 'Refunds (page)',
+  'tx.statsDeposits': 'Deposits',
+  'tx.statsUsage': 'Usage',
+  'tx.statsRefunds': 'Refunds',
+  'tx.statsHint': 'on this page',
   'tx.title': 'Transactions',
   'tx.filterAll': 'All',
   'tx.filterDeposit': 'Deposit',
@@ -412,7 +413,7 @@ const ES: Record<MessageKey, string> = {
   'home.quickActionTransactionsHint': 'Depósitos, uso, reembolsos',
   'home.recentTransactions': 'Transacciones recientes',
   'home.viewAll': 'Ver todas →',
-  'home.noTransactions': 'Aún no hay transacciones. Generá una wallet de depósito en',
+  'home.noTransactions': 'Aún no hay transacciones. Generá una wallet de depósito para empezar.',
 
   // Agents
   'agents.registerTitle': 'Registrar agente nuevo',
@@ -466,9 +467,10 @@ const ES: Record<MessageKey, string> = {
   'wallet.removeLocal': 'Quitar local',
 
   // Transactions
-  'tx.statsDeposits': 'Depósitos (página)',
-  'tx.statsUsage': 'Uso (página)',
-  'tx.statsRefunds': 'Reembolsos (página)',
+  'tx.statsDeposits': 'Depósitos',
+  'tx.statsUsage': 'Uso',
+  'tx.statsRefunds': 'Reembolsos',
+  'tx.statsHint': 'en esta página',
   'tx.title': 'Transacciones',
   'tx.filterAll': 'Todas',
   'tx.filterDeposit': 'Depósito',
