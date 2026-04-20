@@ -5,7 +5,7 @@ import type {
   HealthzResponse, RegisterAgentRequest, RegisterAgentResponse,
   BalanceResponse, GenerateWalletRequest, GenerateWalletResponse,
   ModelsResponse, ChatCompletionRequest, ChatCompletionResponse,
-  TransactionsResponse,
+  TransactionsResponse, TxSendRequest, TxSendResponse,
 } from '@/infrastructure/schemas/rest'
 import type { McpToolResult } from '@/infrastructure/schemas/mcp'
 import type { McpToolName } from '@/domain/scraper'
@@ -44,6 +44,7 @@ export interface RestApiPort {
   listTransactions(key: ApiKey, params: Readonly<{
     type?: 'deposit' | 'usage' | 'refund'; limit?: number; offset?: number
   }>): Promise<Result<TransactionsResponse, RestError>>
+  sendTx(key: ApiKey, req: TxSendRequest): Promise<Result<TxSendResponse, RestError>>
 }
 
 export interface McpPort {

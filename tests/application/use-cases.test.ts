@@ -17,6 +17,16 @@ function fakes() {
     chatCompletion: vi.fn(async () => Ok({ data: { id: 'x', object: 'chat.completion', created: 0, model: 'm', choices: [{ index: 0, message: { role: 'assistant' as const, content: 'hi' } }] }, meta: { costCents: 2 } })),
     chatCompletionStream: vi.fn(async function* () {}),
     listTransactions: vi.fn(async () => Ok({ transactions: [], total: 0, limit: 50, offset: 0 })),
+    sendTx: vi.fn(async () => Ok({
+      userOpHash: '0x' + 'a'.repeat(64),
+      txHash: '0x' + 'b'.repeat(64),
+      from: '0x' + 'c'.repeat(40),
+      chainId: 137,
+      gasUsed: '21000',
+      actualGasCostWei: '1000000000',
+      chargedCents: 1,
+      refundedCents: 0,
+    })),
   }
   const mcp: McpPort = { callTool: vi.fn(async () => Ok({ content: [{ type: 'text' as const, text: 'x' }] })) }
   const agents: AgentRepo = { list: vi.fn(async () => []), add: vi.fn(), rename: vi.fn(), remove: vi.fn(), get: vi.fn(async () => undefined) }

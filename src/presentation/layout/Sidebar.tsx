@@ -13,6 +13,7 @@ const links: readonly { to: string; key: MessageKey }[] = [
   { to: '/scraper/sessions', key: 'sidebar.scraperSessions' },
   { to: '/search', key: 'sidebar.search' },
   { to: '/images', key: 'sidebar.images' },
+  { to: '/tx', key: 'sidebar.sendTx' },
   { to: '/settings', key: 'sidebar.settings' },
   { to: '/guide', key: 'sidebar.guide' },
 ]

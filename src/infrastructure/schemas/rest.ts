@@ -187,3 +187,32 @@ export const ErrorResponseSchema = z.object({
     message: z.string(),
   }).or(z.string()),
 }).loose()
+
+export const TX_SEND_CHAINS = ['polygon'] as const
+export type TxSendChain = (typeof TX_SEND_CHAINS)[number]
+
+const HexAddressField = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'must be 0x + 40 hex chars')
+const HexDataField = z.string().regex(/^0x[a-fA-F0-9]*$/, 'must be 0x-prefixed hex')
+const DecimalIntField = z.string().regex(/^\d+$/, 'must be a non-negative decimal integer')
+const Hex32Field = z.string().regex(/^0x[a-fA-F0-9]{64}$/)
+
+export const TxSendRequestSchema = z.object({
+  chain: z.enum(TX_SEND_CHAINS),
+  to: HexAddressField,
+  data: HexDataField.optional(),
+  value: DecimalIntField.optional(),
+})
+export type TxSendRequest = z.infer<typeof TxSendRequestSchema>
+
+export const TxSendResponseSchema = z.object({
+  userOpHash: Hex32Field,
+  txHash: Hex32Field,
+  from: HexAddressField,
+  chainId: z.number().int().positive(),
+  gasUsed: z.string(),
+  actualGasCostWei: z.string(),
+  chargedCents: z.number().int().nonnegative(),
+  refundedCents: z.number().int().nonnegative(),
+  requestId: z.string().optional(),
+}).loose()
+export type TxSendResponse = z.infer<typeof TxSendResponseSchema>

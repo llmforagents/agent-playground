@@ -6,8 +6,9 @@ import {
   HealthzSchema, RegisterAgentResponseSchema, BalanceResponseSchema,
   GenerateWalletResponseSchema, ModelsResponseSchema,
   ChatCompletionResponseSchema, TransactionsResponseSchema,
+  TxSendResponseSchema,
   type RegisterAgentRequest, type GenerateWalletRequest,
-  type ChatCompletionRequest,
+  type ChatCompletionRequest, type TxSendRequest,
 } from '@/infrastructure/schemas/rest'
 import { classifyHttpError } from './classifyError'
 import { parseSseStream } from '@/infrastructure/stream/sseParser'
@@ -103,6 +104,10 @@ export class RestApiClient implements RestApiPort {
       } catch { /* ignore malformed chunks */ }
     }
     yield { kind: 'done', fullText: full, meta: extractMeta(res.headers) }
+  }
+
+  async sendTx(key: ApiKey, req: TxSendRequest) {
+    return this.postJson('/v1/tx/send', req, TxSendResponseSchema, key)
   }
 
   async listTransactions(
