@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { WrenchIcon, ChevronDownIcon, ChevronRightIcon, CheckIcon, XIcon, Loader2Icon } from 'lucide-react'
+import { ArrowDownIcon, WrenchIcon, ChevronDownIcon, ChevronRightIcon, CheckIcon, XIcon, Loader2Icon } from 'lucide-react'
 import { Button } from '@/presentation/components/ui/button'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { Card } from '@/presentation/components/ui/card'
@@ -35,11 +35,34 @@ export function Chat() {
   const stream = useChatStream()
   const agentic = useAgenticChat()
 
-  const bottomRef = useRef<HTMLDivElement | null>(null)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const [isPinned, setIsPinned] = useState(true)
+  const [hasNew, setHasNew] = useState(false)
 
+  const scrollToBottom = useCallback((smooth = true): void => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+  }, [])
+
+  const onScroll = useCallback((): void => {
+    const el = scrollRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    const pinned = distanceFromBottom < 80
+    setIsPinned(pinned)
+    if (pinned) setHasNew(false)
+  }, [])
+
+  // Auto-scroll when pinned to bottom. If the user scrolled up, mark that
+  // there's new content below instead of jerking the view back down.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [entries, stream.state, agentic.state])
+    if (isPinned) {
+      scrollToBottom()
+    } else {
+      setHasNew(true)
+    }
+  }, [entries, stream.state, agentic.state, isPinned, scrollToBottom])
 
   useEffect(() => {
     if (stream.state.status === 'done') {
@@ -151,8 +174,12 @@ export function Chat() {
         </div>
       </Card>
 
-      <Card className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <Card className="flex-1 min-h-0 overflow-hidden flex flex-col relative">
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="flex-1 overflow-y-auto thin-scroll fade-scroll-mask p-4 space-y-4"
+        >
           {entries.length === 0 && !busy && !currentError ? (
             <div className="h-full flex items-center justify-center text-center">
               <div className="max-w-sm space-y-2">
@@ -184,9 +211,19 @@ export function Chat() {
               <ErrorView error={currentError} />
             </div>
           ) : null}
-
-          <div ref={bottomRef} />
         </div>
+
+        {!isPinned && (entries.length > 0 || busy) ? (
+          <button
+            type="button"
+            onClick={() => { scrollToBottom(); setHasNew(false) }}
+            className={`absolute left-1/2 -translate-x-1/2 bottom-4 z-10 h-8 px-3 rounded-full border border-border bg-background text-foreground text-xs font-medium shadow-md flex items-center gap-1.5 hover:bg-muted transition-colors ${hasNew ? 'ring-2 ring-primary/40' : ''}`}
+            aria-label={t('chat.scrollToLatest')}
+          >
+            <ArrowDownIcon className="size-3.5" />
+            {hasNew ? t('chat.newMessages') : t('chat.scrollToLatest')}
+          </button>
+        ) : null}
       </Card>
 
       <Card className="p-3 flex-shrink-0">
