@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import { PlusIcon } from 'lucide-react'
 import { useAgents } from '@/presentation/hooks/useAgents'
 import { useAppStore } from '@/presentation/hooks/useAppStore'
 import { useT } from '@/presentation/hooks/useT'
@@ -10,8 +12,6 @@ import {
   SelectValue,
 } from '@/presentation/components/ui/select'
 
-const NONE_VALUE = '__none__'
-
 export function AgentSwitcher() {
   const t = useT()
   const { listQuery } = useAgents()
@@ -20,54 +20,91 @@ export function AgentSwitcher() {
 
   const agents = listQuery.data ?? []
   const activeAgent = agents.find((a) => a.id === active)
-  const disabled = agents.length === 0
-  const placeholder = disabled ? t('topbar.noAgents') : t('topbar.noneSelected')
 
+  const label = (
+    <span className="hidden sm:inline text-xs text-muted-foreground flex-shrink-0">
+      {t('topbar.agent')}
+    </span>
+  )
+
+  // 0 agents → CTA to create one
+  if (agents.length === 0) {
+    return (
+      <div className="flex items-center gap-2 min-w-0">
+        {label}
+        <Link
+          to="/agents"
+          className="h-9 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <PlusIcon className="size-3.5" />
+          <span className="truncate">{t('topbar.noAgents')}</span>
+        </Link>
+      </div>
+    )
+  }
+
+  // 1 agent → static badge linking to /agents (no meaningful switch)
+  if (agents.length === 1) {
+    const only = agents[0]!
+    return (
+      <div className="flex items-center gap-2 min-w-0">
+        {label}
+        <Link
+          to="/agents"
+          title={only.name}
+          className="h-9 inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm hover:bg-muted transition-colors min-w-0 max-w-[14rem]"
+        >
+          <span
+            className="size-2 rounded-full flex-shrink-0"
+            style={{ background: only.color }}
+            aria-hidden
+          />
+          <span className="truncate font-medium">{only.name}</span>
+        </Link>
+      </div>
+    )
+  }
+
+  // 2+ agents → switcher
+  const selectValue = activeAgent ? active : undefined
   return (
     <div className="flex items-center gap-2 min-w-0">
-      <span className="hidden sm:inline text-xs text-muted-foreground flex-shrink-0">
-        {t('topbar.agent')}
-      </span>
+      {label}
       <Select
-        value={active ?? NONE_VALUE}
-        onValueChange={(v) => setActive(v === NONE_VALUE ? undefined : AgentId(v))}
-        disabled={disabled}
+        {...(selectValue ? { value: selectValue } : {})}
+        onValueChange={(v) => setActive(AgentId(v))}
       >
         <SelectTrigger
           size="sm"
-          className="h-9 min-w-0 flex-1 sm:flex-initial max-w-[12rem] sm:max-w-none sm:min-w-[14rem]"
+          className="h-9 min-w-0 flex-1 sm:flex-initial max-w-[14rem] sm:max-w-none sm:min-w-[14rem]"
           aria-label={t('topbar.agent')}
         >
-          <div className="flex items-center gap-2 min-w-0">
+          <SelectValue placeholder={t('topbar.noneSelected')}>
             {activeAgent ? (
-              <span
-                className="size-2 rounded-full flex-shrink-0"
-                style={{ background: activeAgent.color }}
-                aria-hidden
-              />
+              <span className="flex items-center gap-2 min-w-0">
+                <span
+                  className="size-2 rounded-full flex-shrink-0"
+                  style={{ background: activeAgent.color }}
+                  aria-hidden
+                />
+                <span className="truncate">{activeAgent.name}</span>
+              </span>
             ) : null}
-            <SelectValue placeholder={placeholder} />
-          </div>
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {agents.length > 0 ? (
-            agents.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                <span className="flex items-center gap-2">
-                  <span
-                    className="size-2 rounded-full flex-shrink-0"
-                    style={{ background: a.color }}
-                    aria-hidden
-                  />
-                  {a.name}
-                </span>
-              </SelectItem>
-            ))
-          ) : (
-            <SelectItem value={NONE_VALUE} disabled>
-              {t('topbar.noAgents')}
+          {agents.map((a) => (
+            <SelectItem key={a.id} value={a.id}>
+              <span className="flex items-center gap-2">
+                <span
+                  className="size-2 rounded-full flex-shrink-0"
+                  style={{ background: a.color }}
+                  aria-hidden
+                />
+                {a.name}
+              </span>
             </SelectItem>
-          )}
+          ))}
         </SelectContent>
       </Select>
     </div>
