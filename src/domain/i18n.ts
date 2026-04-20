@@ -23,6 +23,7 @@ const EN = {
   'common.close': 'Close',
   'common.prev': 'Prev',
   'common.next': 'Next',
+  'common.goToWallet': 'Go to Wallet',
 
   // Sidebar
   'sidebar.home': 'Home',
@@ -87,7 +88,7 @@ const EN = {
   'agents.registering': 'Registering…',
   'agents.registered': 'Agent registered',
   'agents.yourAgents': 'Your agents',
-  'agents.saved': '{n} saved',
+  'agents.saved': '{n} agent(s) saved',
   'agents.empty': 'No agents yet. Register one above to begin testing.',
   'agents.apiKey': 'API key',
   'agents.showKey': 'Show key',
@@ -117,7 +118,7 @@ const EN = {
   'wallet.generate': 'Generate {chain} · {token} wallet',
   'wallet.walletReady': 'Wallet ready',
   'wallet.yourAddresses': 'Your deposit addresses',
-  'wallet.saved': '{n} saved',
+  'wallet.saved': '{n} address(es) saved',
   'wallet.syncAll': 'Sync all',
   'wallet.syncing': 'Syncing…',
   'wallet.syncedToast': 'Synced {n} wallets',
@@ -363,6 +364,7 @@ const ES: Record<MessageKey, string> = {
   'common.close': 'Cerrar',
   'common.prev': 'Anterior',
   'common.next': 'Siguiente',
+  'common.goToWallet': 'Ir a Wallet',
 
   // Sidebar
   'sidebar.home': 'Inicio',
@@ -425,7 +427,7 @@ const ES: Record<MessageKey, string> = {
   'agents.registering': 'Registrando…',
   'agents.registered': 'Agente registrado',
   'agents.yourAgents': 'Tus agentes',
-  'agents.saved': '{n} guardados',
+  'agents.saved': 'Guardados: {n}',
   'agents.empty': 'Aún no hay agentes. Registrá uno arriba para empezar a probar.',
   'agents.apiKey': 'API key',
   'agents.showKey': 'Mostrar key',
@@ -455,7 +457,7 @@ const ES: Record<MessageKey, string> = {
   'wallet.generate': 'Generar wallet {chain} · {token}',
   'wallet.walletReady': 'Wallet lista',
   'wallet.yourAddresses': 'Tus direcciones de depósito',
-  'wallet.saved': '{n} guardadas',
+  'wallet.saved': 'Guardadas: {n}',
   'wallet.syncAll': 'Sincronizar todas',
   'wallet.syncing': 'Sincronizando…',
   'wallet.syncedToast': '{n} wallets sincronizadas',

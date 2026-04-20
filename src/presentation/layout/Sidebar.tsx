@@ -20,7 +20,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const t = useT()
   return (
     <nav className="w-full md:w-56 h-full border-r border-border bg-sidebar text-sidebar-foreground p-3 space-y-1 overflow-y-auto">
-      <div className="font-bold text-lg mb-3 px-2">LLM4Agents</div>
+      <div className="font-bold text-lg mb-5 mt-1 px-2">LLM4Agents</div>
       {links.map((l) => (
         <NavLink
           key={l.to}

@@ -79,7 +79,7 @@ export function ScraperOneShot() {
                 onClick={() => setTool(tl)}
                 className={`py-2.5 px-3 text-sm rounded-md transition-colors text-center ${
                   isActive
-                    ? 'bg-foreground/10 text-foreground shadow-sm font-medium'
+                    ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >

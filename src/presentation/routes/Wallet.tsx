@@ -168,7 +168,7 @@ export function Wallet() {
                     key={c}
                     type="button"
                     onClick={() => setChain(c)}
-                    className={`py-1.5 text-sm rounded-md transition-colors ${chain === c ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`py-1.5 text-sm rounded-md transition-colors ${chain === c ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     {c}
                   </button>
@@ -183,7 +183,7 @@ export function Wallet() {
                     key={tk}
                     type="button"
                     onClick={() => setToken(tk)}
-                    className={`py-1.5 text-sm rounded-md transition-colors ${token === tk ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`py-1.5 text-sm rounded-md transition-colors ${token === tk ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     {tk}
                   </button>

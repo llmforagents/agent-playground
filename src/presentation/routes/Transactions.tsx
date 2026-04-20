@@ -91,7 +91,7 @@ export function Transactions() {
               key={f}
               type="button"
               onClick={() => { setType(f); setOffset(0) }}
-              className={`py-1.5 text-sm rounded-md transition-colors ${type === f ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`py-1.5 text-sm rounded-md transition-colors ${type === f ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:text-foreground'}`}
             >
               {t(FILTER_LABELS[f])}
             </button>

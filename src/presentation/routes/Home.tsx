@@ -145,7 +145,7 @@ export function Home() {
           <Card className="p-6 text-center space-y-3">
             <p className="text-sm text-muted-foreground">{t('home.noTransactions')}</p>
             <Link to="/wallet" className="inline-block">
-              <Button size="sm" variant="secondary">{t('home.manageWallet')}</Button>
+              <Button size="sm" variant="secondary">{t('common.goToWallet')}</Button>
             </Link>
           </Card>
         )}

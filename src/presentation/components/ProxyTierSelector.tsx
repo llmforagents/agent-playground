@@ -10,7 +10,7 @@ export function ProxyTierSelector({
           key={t}
           type="button"
           onClick={() => onChange(t)}
-          className={`py-2.5 px-3 text-sm rounded-md transition-colors capitalize ${value === t ? 'bg-foreground/10 text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+          className={`py-2.5 px-3 text-sm rounded-md transition-colors capitalize ${value === t ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:text-foreground'}`}
         >
           {t}
         </button>
