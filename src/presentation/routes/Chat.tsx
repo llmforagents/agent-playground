@@ -326,6 +326,8 @@ function ToolStep({ step, t }: { step: Extract<AgenticStep, { kind: 'tool' }>; t
         </span>
       </button>
 
+      <ToolImagePreview raw={step.raw} />
+
       {open ? (
         <div className="px-3 py-2 border-t border-border space-y-2 text-xs">
           <div>
@@ -342,7 +344,6 @@ function ToolStep({ step, t }: { step: Extract<AgenticStep, { kind: 'tool' }>; t
               </pre>
             </div>
           ) : null}
-          <ToolImagePreview raw={step.raw} />
         </div>
       ) : null}
     </div>
@@ -355,14 +356,17 @@ function ToolImagePreview({ raw }: { raw: unknown }): React.JSX.Element | null {
   if (!Array.isArray(content)) return null
   const first = content[0] as { type?: string; data?: string; mimeType?: string } | undefined
   if (!first || first.type !== 'image' || !first.data || !first.mimeType) return null
+  const dataUri = `data:${first.mimeType};base64,${first.data}`
   return (
-    <div>
-      <div className="text-[10px] text-muted-foreground mb-1">image</div>
+    <div className="border-t border-border p-2 bg-muted/20">
       <img
-        src={`data:${first.mimeType};base64,${first.data}`}
+        src={dataUri}
         alt="tool output"
-        className="max-w-full h-auto rounded-md border border-border"
+        className="max-w-full h-auto rounded-md mx-auto"
       />
+      <a href={dataUri} download="image.png" className="block text-center text-[10px] text-muted-foreground mt-1 hover:text-foreground">
+        ⤓ PNG
+      </a>
     </div>
   )
 }

@@ -51,13 +51,17 @@ export function detectDispatchMode(modelSlug: string): DispatchMode {
 const BASE_SYSTEM_PROMPT = `You are a helpful assistant with access to real-time tools:
 - google_search, google_news, google_maps: for current events, facts, sports scores, prices, news, places, or anything time-sensitive.
 - fetch_html, markdown, links, extract: to read and process specific web pages.
+- generate_image, edit_image: to produce or modify PNG images. The rendered image is shown DIRECTLY to the user by the client.
+- analyze_image: vision/OCR. Returns a text answer about an image.
 
 IMPORTANT behavior:
 - Whenever the user asks about current events, dates, prices, sports, news, places, or any fact that might be outdated, CALL a tool instead of answering from memory or asking for clarification.
 - If the user mentions a date without a year, assume the current/upcoming season and search. Do not ask for the year — just search.
 - If the user writes in Spanish, respond in Spanish. The tool arguments should be in the appropriate language for the query.
 - After getting tool results, summarize the answer clearly and cite sources (URLs) when relevant.
-- If a tool fails, briefly explain and try a different approach.`
+- If a tool fails, briefly explain and try a different approach.
+- CRITICAL for image tools: generate_image and edit_image succeed when they return an "image" content block. The image has already been rendered to the user by the client. After a successful image call, reply with ONE short confirmation sentence. Do NOT call the image tool again. Do NOT try to include the base64 in your reply. Do NOT describe what you drew unless the user asks.
+- Never call the same tool with the same arguments twice in one conversation — the second call will cost money and return the same result.`
 
 function buildToolsList(): string {
   return CHAT_TOOLS.map((t) => {
@@ -267,6 +271,20 @@ export async function* runAgenticChat(
       continue
     }
 
+    // Cost guard: refuse to re-invoke the same tool with the same arguments.
+    // This prevents runaway loops when a model doesn't understand a success
+    // signal (e.g. image tools returning binary content).
+    const argsKey = safeStringify(step.args)
+    const repeatedSuccess = toolHistory.find(
+      (h) => h.toolName === step.name && h.ok && safeStringify(h.args) === argsKey,
+    )
+    if (repeatedSuccess) {
+      const msg = `Already called ${step.name} with the same arguments; reusing the previous result. Stop calling this tool and reply to the user.`
+      toolHistory.push({ toolName: step.name, args: step.args, ok: true, resultText: msg })
+      yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: true, summary: msg, raw: null }
+      continue
+    }
+
     const mcpRes = await deps.mcp.callTool(deps.key, def.mcpName, step.args, params.signal)
     if (!mcpRes.ok) {
       const errText = `Tool execution failed: ${safeStringify(mcpRes.error)}`
@@ -320,10 +338,17 @@ function summarizeResult(result: McpToolResult): { summary: string; content: str
     return { summary, content: truncated }
   }
   if (first.type === 'image') {
-    return { summary: `Image returned (${first.mimeType})`, content: JSON.stringify({ type: 'image', mimeType: first.mimeType, note: 'Binary content not sent to model' }) }
+    const bytes = typeof first.data === 'string' ? first.data.length : 0
+    return {
+      summary: `Image rendered (${first.mimeType})`,
+      content: `SUCCESS: The ${first.mimeType} image has been generated and is already displayed to the user inline (${bytes} base64 chars). Do NOT call this tool again. Reply with one short confirmation sentence to the user (e.g. "Done — here's the image.").`,
+    }
   }
   if (first.type === 'resource') {
-    return { summary: `Resource: ${first.resource.mimeType ?? 'unknown'}`, content: JSON.stringify({ type: 'resource', mimeType: first.resource.mimeType, note: 'Binary content not sent to model' }) }
+    return {
+      summary: `Resource: ${first.resource.mimeType ?? 'unknown'}`,
+      content: `SUCCESS: A ${first.resource.mimeType ?? 'binary'} resource was returned and rendered to the user. Do NOT call this tool again. Reply with one short confirmation sentence.`,
+    }
   }
   return { summary: 'Unknown content', content: JSON.stringify(result) }
 }
