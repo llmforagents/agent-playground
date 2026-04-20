@@ -187,17 +187,27 @@ async function runIteration(
     stream: false,
     ...(mode === 'native' ? { tools: CHAT_TOOLS.map((t) => t.openai), tool_choice: 'auto' as const } : {}),
   }
+  const t0 = Date.now()
+  // eslint-disable-next-line no-console
+  console.debug('[agentic] → chat.completion', { model: params.model, mode, nTools: mode === 'native' ? CHAT_TOOLS.length : 0, nMessages: messages.length })
   const res = await deps.rest.chatCompletion(deps.key, req)
+  const dt = Date.now() - t0
   if (!res.ok) {
+    // eslint-disable-next-line no-console
+    console.debug('[agentic] ← chat.completion ERROR', { dt, error: res.error })
     return { step: { kind: 'error', error: res.error, providerMightNotSupportTools: looksLikeUnsupportedToolsError(res.error) }, meta: {} }
   }
   const meta = res.value.meta
   const choice = res.value.data.choices[0]
   if (!choice) {
+    // eslint-disable-next-line no-console
+    console.debug('[agentic] ← chat.completion NO CHOICES', { dt, raw: res.value.data })
     return { step: { kind: 'error', error: { kind: 'upstream_error', status: 500, body: 'no choices' }, providerMightNotSupportTools: false }, meta }
   }
   const msg = choice.message
   const assistantText = msg.content ?? ''
+  // eslint-disable-next-line no-console
+  console.debug('[agentic] ← chat.completion OK', { dt, finishReason: choice.finish_reason, nToolCalls: msg.tool_calls?.length ?? 0, textLen: assistantText.length, meta })
 
   if (mode === 'native') {
     const toolCalls: readonly ToolCall[] = msg.tool_calls ?? []

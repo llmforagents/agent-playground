@@ -296,6 +296,21 @@ function AgenticBlock({
   iteration?: number
   t: TFn
 }): React.JSX.Element {
+  const [elapsedMs, setElapsedMs] = useState(0)
+  const startRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!isRunning) { startRef.current = null; setElapsedMs(0); return }
+    if (startRef.current === null) startRef.current = Date.now()
+    setElapsedMs(Date.now() - startRef.current)
+    const id = setInterval(() => {
+      if (startRef.current !== null) setElapsedMs(Date.now() - startRef.current)
+    }, 500)
+    return () => clearInterval(id)
+  }, [isRunning])
+
+  const elapsedSec = Math.floor(elapsedMs / 1000)
+
   return (
     <div className="flex gap-3">
       <div className="size-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 bg-emerald-500/15 text-emerald-600">
@@ -303,7 +318,8 @@ function AgenticBlock({
       </div>
       <div className="flex-1 min-w-0 space-y-2">
         <div className="text-[10px] text-muted-foreground">
-          {t('chat.assistant')}{isRunning ? ` · ${t('chat.working', { n: iteration + 1 })}` : ''}
+          {t('chat.assistant')}
+          {isRunning ? ` · ${t('chat.working', { n: iteration + 1 })} · ${elapsedSec}s` : ''}
         </div>
 
         {steps.map((s, i) => {
@@ -331,7 +347,7 @@ function AgenticBlock({
           </div>
         ) : isRunning && steps.length === 0 ? (
           <div className="rounded-xl px-3 py-2 text-sm bg-muted/40 text-muted-foreground italic max-w-[85%]">
-            {t('chat.thinking')}
+            {t('chat.thinking')} <span className="text-[10px] tabular-nums not-italic">({elapsedSec}s)</span>
           </div>
         ) : null}
       </div>
