@@ -193,6 +193,7 @@ const EN = {
   'chat.toolsImages': 'Images',
   'chat.maxIterationsError': 'Reached max iterations (3) without a final answer. Try a simpler question or disable tools.',
   'chat.abortedToolFailed': 'Stopped after the tool "{tool}" failed ({detail}). No further model calls were made, so no extra tokens were charged. Rephrase and try again.',
+  'chat.abortedOneTool': 'Your first tool ran successfully. The model then tried to call "{tool}" again instead of answering. Stopped to prevent extra charges — the tool you can see above already has the result. This is the one-tool-per-turn safety policy.',
   'chat.abortedCap': 'Stopped at the 3-tool-call safety cap while running "{tool}". No further model calls were made. Rephrase or disable tools and try again.',
 
   // Models
@@ -600,6 +601,7 @@ const ES: Record<MessageKey, string> = {
   'chat.toolsImages': 'Imágenes',
   'chat.maxIterationsError': 'Llegamos al máximo de iteraciones (3) sin respuesta final. Probá una pregunta más simple o desactivá las tools.',
   'chat.abortedToolFailed': 'Detenido porque la tool "{tool}" falló ({detail}). No se hicieron más llamadas al modelo, así que no se cobraron tokens extra. Reformulá y probá de nuevo.',
+  'chat.abortedOneTool': 'La primera tool se ejecutó bien. El modelo intentó llamar "{tool}" otra vez en vez de responderte. Detenido para evitar cobros extra — la tool que ves arriba ya tiene el resultado. Es la política de una tool por turno.',
   'chat.abortedCap': 'Detenido al límite de seguridad de 3 tool-calls ejecutando "{tool}". No se hicieron más llamadas al modelo. Reformulá o desactivá las tools y probá de nuevo.',
 
   // Models

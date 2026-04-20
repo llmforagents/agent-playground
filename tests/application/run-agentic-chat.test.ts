@@ -102,7 +102,7 @@ describe('runAgenticChat cost guards', () => {
     ))
     expect(mcpCalls).toBe(1)
     const aborted = events.find((e) => e.kind === 'aborted')
-    expect(aborted?.kind === 'aborted' && aborted.reason).toBe('tool_cap_reached')
+    expect(aborted?.kind === 'aborted' && aborted.reason).toBe('one_tool_policy')
     expect(events.find((e) => e.kind === 'final')).toBeUndefined()
   })
 

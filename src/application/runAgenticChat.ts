@@ -10,7 +10,7 @@ import type {
 import type { McpToolResult } from '@/infrastructure/schemas/mcp'
 import { CHAT_TOOLS, findChatTool } from '@/domain/chatTools'
 
-export type AgenticAbortReason = 'tool_failed' | 'tool_cap_reached'
+export type AgenticAbortReason = 'tool_failed' | 'tool_cap_reached' | 'one_tool_policy'
 
 export type AgenticEvent =
   | { readonly kind: 'thinking'; readonly iteration: number; readonly mode: DispatchMode }
@@ -288,7 +288,7 @@ export async function* runAgenticChat(
     )
     if (hadPriorSuccess) {
       const detail = `Playground policy: one tool call per turn. The model already got a successful result but tried to call "${step.name}" instead of answering. Stopped to prevent further charges.`
-      yield { kind: 'aborted', reason: 'tool_cap_reached', toolName: step.name, detail }
+      yield { kind: 'aborted', reason: 'one_tool_policy', toolName: step.name, detail }
       return
     }
 
