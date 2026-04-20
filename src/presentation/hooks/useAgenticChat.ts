@@ -71,6 +71,14 @@ export function useAgenticChat() {
         } else if (ev.kind === 'max_iterations') {
           setState({ status: 'error', error: { kind: 'unknown', message: t('chat.maxIterationsError'), raw: null }, steps })
           return
+        } else if (ev.kind === 'aborted') {
+          const msgKey = ev.reason === 'tool_cap_reached' ? 'chat.abortedCap' : 'chat.abortedToolFailed'
+          setState({
+            status: 'error',
+            error: { kind: 'unknown', message: t(msgKey, { tool: ev.toolName, detail: ev.detail }), raw: null },
+            steps,
+          })
+          return
         } else if (ev.kind === 'error') {
           setState({ status: 'error', error: ev.error, steps })
           return

@@ -189,7 +189,9 @@ const EN = {
   'chat.toolsSearch': 'Search',
   'chat.toolsWebScraper': 'Web scraper',
   'chat.toolsImages': 'Images',
-  'chat.maxIterationsError': 'Reached max iterations (5) without a final answer. Try a simpler question or disable tools.',
+  'chat.maxIterationsError': 'Reached max iterations (3) without a final answer. Try a simpler question or disable tools.',
+  'chat.abortedToolFailed': 'Stopped after the tool "{tool}" failed ({detail}). No further model calls were made, so no extra tokens were charged. Rephrase and try again.',
+  'chat.abortedCap': 'Stopped at the 3-tool-call safety cap while running "{tool}". No further model calls were made. Rephrase or disable tools and try again.',
 
   // Models
   'models.title': 'Models',
@@ -592,7 +594,9 @@ const ES: Record<MessageKey, string> = {
   'chat.toolsSearch': 'Búsqueda',
   'chat.toolsWebScraper': 'Web scraper',
   'chat.toolsImages': 'Imágenes',
-  'chat.maxIterationsError': 'Llegamos al máximo de iteraciones (5) sin respuesta final. Probá una pregunta más simple o desactivá las tools.',
+  'chat.maxIterationsError': 'Llegamos al máximo de iteraciones (3) sin respuesta final. Probá una pregunta más simple o desactivá las tools.',
+  'chat.abortedToolFailed': 'Detenido porque la tool "{tool}" falló ({detail}). No se hicieron más llamadas al modelo, así que no se cobraron tokens extra. Reformulá y probá de nuevo.',
+  'chat.abortedCap': 'Detenido al límite de seguridad de 3 tool-calls ejecutando "{tool}". No se hicieron más llamadas al modelo. Reformulá o desactivá las tools y probá de nuevo.',
 
   // Models
   'models.title': 'Modelos',

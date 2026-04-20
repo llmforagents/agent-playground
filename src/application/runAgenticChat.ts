@@ -10,6 +10,8 @@ import type {
 import type { McpToolResult } from '@/infrastructure/schemas/mcp'
 import { CHAT_TOOLS, findChatTool } from '@/domain/chatTools'
 
+export type AgenticAbortReason = 'tool_failed' | 'tool_cap_reached'
+
 export type AgenticEvent =
   | { readonly kind: 'thinking'; readonly iteration: number; readonly mode: DispatchMode }
   | { readonly kind: 'assistant_text'; readonly text: string }
@@ -18,11 +20,13 @@ export type AgenticEvent =
   | { readonly kind: 'final'; readonly text: string; readonly meta: ChatResponseMeta }
   | { readonly kind: 'mode_fallback'; readonly from: DispatchMode; readonly to: DispatchMode; readonly reason: string }
   | { readonly kind: 'max_iterations' }
+  | { readonly kind: 'aborted'; readonly reason: AgenticAbortReason; readonly toolName: string; readonly detail: string }
   | { readonly kind: 'error'; readonly error: AppError }
 
 export type DispatchMode = 'native' | 'prompt'
 
-const DEFAULT_MAX_ITERATIONS = 5
+const DEFAULT_MAX_ITERATIONS = 3
+const MAX_TOOL_CALLS_PER_RUN = 3
 const MAX_TOOL_RESULT_CHARS = 4000
 
 /** Slug prefixes for model families known to support OpenAI-style tool calling through the proxy. */
@@ -266,32 +270,58 @@ export async function* runAgenticChat(
 
     const def = findChatTool(step.name)
     if (!def) {
-      toolHistory.push({ toolName: step.name, args: step.args, ok: false, resultText: `Unknown tool: ${step.name}` })
-      yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: false, summary: `Unknown tool: ${step.name}`, raw: null }
+      // Unknown tool — abort. Calling the LLM again would just cost tokens
+      // without moving closer to a useful answer.
+      const detail = `Unknown tool: ${step.name}`
+      toolHistory.push({ toolName: step.name, args: step.args, ok: false, resultText: detail })
+      yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: false, summary: detail, raw: null }
+      yield { kind: 'aborted', reason: 'tool_failed', toolName: step.name, detail }
+      return
+    }
+
+    // Cost guard 1: refuse to re-invoke the same tool with the same arguments
+    // (success OR failure). The second call would return the same result and
+    // the intermediate chat completion would cost tokens for nothing.
+    const argsKey = safeStringify(step.args)
+    const priorCall = toolHistory.find(
+      (h) => h.toolName === step.name && safeStringify(h.args) === argsKey,
+    )
+    if (priorCall) {
+      const msg = priorCall.ok
+        ? `Already called ${step.name} with the same arguments and it succeeded. The user has already seen that result. Reply to the user now.`
+        : `Already called ${step.name} with the same arguments and it failed: ${priorCall.resultText.slice(0, 200)}. Do NOT retry with the same arguments.`
+      toolHistory.push({ toolName: step.name, args: step.args, ok: priorCall.ok, resultText: msg })
+      yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: priorCall.ok, summary: msg, raw: null }
+      // If this was a prior failure, also abort — the model is looping.
+      if (!priorCall.ok) {
+        yield { kind: 'aborted', reason: 'tool_failed', toolName: step.name, detail: msg }
+        return
+      }
       continue
     }
 
-    // Cost guard: refuse to re-invoke the same tool with the same arguments.
-    // This prevents runaway loops when a model doesn't understand a success
-    // signal (e.g. image tools returning binary content).
-    const argsKey = safeStringify(step.args)
-    const repeatedSuccess = toolHistory.find(
-      (h) => h.toolName === step.name && h.ok && safeStringify(h.args) === argsKey,
-    )
-    if (repeatedSuccess) {
-      const msg = `Already called ${step.name} with the same arguments; reusing the previous result. Stop calling this tool and reply to the user.`
-      toolHistory.push({ toolName: step.name, args: step.args, ok: true, resultText: msg })
-      yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: true, summary: msg, raw: null }
-      continue
+    // Cost guard 2: hard cap on total tool calls per run. Beyond this the
+    // model is fishing and the token cost outweighs any likely result.
+    const actualCallsSoFar = toolHistory.filter((h) => !h.resultText.startsWith('Already called')).length
+    if (actualCallsSoFar >= MAX_TOOL_CALLS_PER_RUN) {
+      const detail = `Tool call cap reached (${MAX_TOOL_CALLS_PER_RUN} per run). Stopping to prevent further charges.`
+      toolHistory.push({ toolName: step.name, args: step.args, ok: false, resultText: detail })
+      yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: false, summary: detail, raw: null }
+      yield { kind: 'aborted', reason: 'tool_cap_reached', toolName: step.name, detail }
+      return
     }
 
     const mcpRes = await deps.mcp.callTool(deps.key, def.mcpName, step.args, params.signal)
     if (!mcpRes.ok) {
+      // Cost guard 3: tool failed. Abort. Do NOT make another chat completion
+      // call — that would cost tokens on the next round with no guarantee of
+      // recovery. The user can re-send if they want another attempt.
       const errText = `Tool execution failed: ${safeStringify(mcpRes.error)}`
       const errSummary = mcpErrorSummary(mcpRes.error)
       toolHistory.push({ toolName: step.name, args: step.args, ok: false, resultText: errText })
       yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: false, summary: errSummary, raw: mcpRes.error }
-      continue
+      yield { kind: 'aborted', reason: 'tool_failed', toolName: step.name, detail: errSummary }
+      return
     }
 
     const { summary, content } = summarizeResult(mcpRes.value)
