@@ -81,7 +81,7 @@ export function SendTx() {
           <div>
             <label className="text-xs text-muted-foreground block mb-1">{t('tx.send.chain')}</label>
             <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm font-medium">
-              polygon <span className="text-xs text-muted-foreground ml-2">chainId 137</span>
+              polygon
             </div>
           </div>
 
@@ -146,7 +146,7 @@ export function SendTx() {
             <ReceiptRow label={t('tx.send.txHash')} value={send.data.txHash} copy mono />
             <ReceiptRow label={t('tx.send.from')} value={send.data.from} copy mono />
             <ReceiptRow label={t('tx.send.toLabel')} value={send.data.to} copy mono />
-            <ReceiptRow label="chain" value={`${send.data.chain} · ${send.data.chainId}`} />
+            <ReceiptRow label="chain" value={send.data.chain} />
             <ReceiptRow label={t('tx.send.tokenLabel')} value={send.data.tokenAddress ? `${send.data.token} · ${shortHex(send.data.tokenAddress)}` : send.data.token} />
             <ReceiptRow label={t('tx.send.amountSent')} value={send.data.amount} mono emphasize />
             {send.data.feeFormatted ? (
