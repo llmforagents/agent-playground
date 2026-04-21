@@ -133,14 +133,15 @@ export function normalizeMcpResult(raw: unknown): unknown {
             ? obj['image_base64']
             : null
         if (b64) {
+          const declared = typeof obj['mimeType'] === 'string'
+            ? obj['mimeType']
+            : typeof obj['mime_type'] === 'string'
+              ? obj['mime_type']
+              : null
           return {
             type: 'image',
             data: b64,
-            mimeType: typeof obj['mimeType'] === 'string'
-              ? obj['mimeType']
-              : typeof obj['mime_type'] === 'string'
-                ? obj['mime_type']
-                : 'image/png',
+            mimeType: declared ?? sniffImageMime(b64),
           }
         }
         // analyze_image and friends wrap the answer as
@@ -158,6 +159,20 @@ export function normalizeMcpResult(raw: unknown): unknown {
 
 function tryParseJson(s: string): unknown {
   try { return JSON.parse(s) } catch { return null }
+}
+
+/**
+ * Detect an image mime type from the first bytes of a base64 payload.
+ * The servers we call don't always tag images with a mimeType, so we sniff
+ * magic bytes from the base64 prefix.
+ */
+function sniffImageMime(b64: string): string {
+  const prefix = b64.slice(0, 16)
+  if (prefix.startsWith('iVBORw0KGgo')) return 'image/png'
+  if (prefix.startsWith('/9j/')) return 'image/jpeg'
+  if (prefix.startsWith('R0lGOD')) return 'image/gif'
+  if (prefix.startsWith('UklGR')) return 'image/webp'
+  return 'image/png'
 }
 
 function describeContent(raw: unknown): readonly string[] {

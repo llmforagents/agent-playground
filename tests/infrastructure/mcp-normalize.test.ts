@@ -22,6 +22,18 @@ describe('normalizeMcpResult', () => {
     expect(out.content[0]?.mimeType).toBe('image/png')
   })
 
+  it('sniffs image mime from base64 magic bytes when not declared', () => {
+    const jpeg = { content: [{ type: 'text', text: JSON.stringify({ imageBase64: '/9j/4AAQSkZJRg==' }) }] }
+    const png  = { content: [{ type: 'text', text: JSON.stringify({ imageBase64: 'iVBORw0KGgoAAAA' }) }] }
+    const gif  = { content: [{ type: 'text', text: JSON.stringify({ imageBase64: 'R0lGODlhAQAB' }) }] }
+    const webp = { content: [{ type: 'text', text: JSON.stringify({ imageBase64: 'UklGRgAA' }) }] }
+    const mime = (r: unknown) => (normalizeMcpResult(r) as { content: { mimeType: string }[] }).content[0]?.mimeType
+    expect(mime(jpeg)).toBe('image/jpeg')
+    expect(mime(png)).toBe('image/png')
+    expect(mime(gif)).toBe('image/gif')
+    expect(mime(webp)).toBe('image/webp')
+  })
+
   it('accepts snake_case image_base64 and mime_type', () => {
     const raw = {
       content: [
