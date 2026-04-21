@@ -30,13 +30,23 @@ Each route in the sidebar maps to one API surface:
 | `/scraper/one-shot` | `fetch_html`, `markdown`, `links`, `screenshot`, `pdf`, `extract` (proxy tier: none / datacenter / residential) |
 | `/scraper/sessions` | Persistent browser sessions via `session_create/exec/close/status` |
 | `/search` | `google_search`, `google_news`, `google_maps`, `google_batch_search` |
-| `/images` | **New.** `generate_image`, `edit_image`, `analyze_image` with inline PNG preview and download |
-| `/tx` | **New.** `POST /v1/tx/send` — gas-sponsored ERC-4337 transactions on Polygon (ERC-20 transfer builder + raw call) |
+| `/images` | `generate_image` (PNG), `edit_image` (JPEG), `analyze_image` (vision Q&A). Mime sniffing + inline preview + download. |
+| `/tx` | `POST /v1/tx/send` — gas-sponsored USDC transfer on Polygon via EIP-2612 Permit + StablecoinForwarder. Fee debited from USD balance (no MATIC needed). |
 | `/transactions` | `GET /api/v1/transactions` with filters + stats + pagination |
 | `/settings` | Theme, language (EN/ES), health check, wipe local data |
 | `/guide` | Step-by-step walkthrough of an end-to-end test |
 
-The agentic chat can invoke every search / scraper / image tool mid-conversation. Images are rendered inline in the assistant bubble with a PNG download link. The `/tx` endpoint is deliberately **not** exposed to the chat — moving real money on-chain needs an explicit user click.
+The agentic chat can invoke every search / scraper / image tool mid-conversation. Images are rendered inline in the assistant bubble. The `/tx` endpoint is deliberately **not** exposed to the chat — moving real money on-chain needs an explicit user click.
+
+### Cost protections on the chat
+
+Three guardrails prevent runaway charges when a model loops:
+
+1. **One tool per turn** — after a successful tool call, any second tool_call in the same turn aborts the run immediately. No extra chat.completion charged.
+2. **Same-args dedup** — a repeated call with identical arguments reuses the cached result (no second MCP hit).
+3. **Image short-circuit** — image tools are terminal: the PNG/JPEG IS the answer, so we skip the synthesis chat.completion entirely (saves ~$0.015 per image).
+
+Default `maxIterations` is 3, hard cap of 3 real tool calls per run.
 
 ## Workflow
 
@@ -45,7 +55,7 @@ The agentic chat can invoke every search / scraper / image tool mid-conversation
 3. Refresh balance manually → when credited, `/chat` unlocks.
 4. Default model is `gemini-2.5-flash-lite`. Switching to a more expensive model prompts a confirmation.
 5. Try `/images` with a prompt like "a neon-lit dashboard on a developer desk", or ask the chat to generate one directly.
-6. Try `/tx` in ERC-20 mode with a small amount (e.g. 0.01 USDC) to a test address — the receipt shows `chargedCents` / `refundedCents` and a Polygonscan link.
+6. Try `/tx` with a small amount (e.g. `0.01` USDC) to a test address — the receipt shows the fee in USD + an explorer link provided by the backend.
 
 ## Scripts
 
