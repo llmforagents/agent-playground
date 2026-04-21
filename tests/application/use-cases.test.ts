@@ -18,14 +18,14 @@ function fakes() {
     chatCompletionStream: vi.fn(async function* () {}),
     listTransactions: vi.fn(async () => Ok({ transactions: [], total: 0, limit: 50, offset: 0 })),
     sendTx: vi.fn(async () => Ok({
-      userOpHash: '0x' + 'a'.repeat(64),
       txHash: '0x' + 'b'.repeat(64),
       from: '0x' + 'c'.repeat(40),
+      to: '0x' + 'd'.repeat(40),
+      chain: 'polygon',
       chainId: 137,
-      gasUsed: '21000',
-      actualGasCostWei: '1000000000',
+      token: 'USDC',
+      amount: '0.5',
       chargedCents: 1,
-      refundedCents: 0,
     })),
   }
   const mcp: McpPort = { callTool: vi.fn(async () => Ok({ content: [{ type: 'text' as const, text: 'x' }] })) }

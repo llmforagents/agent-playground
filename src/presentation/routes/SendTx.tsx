@@ -1,10 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Card } from '@/presentation/components/ui/card'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
-import { Textarea } from '@/presentation/components/ui/textarea'
 import { ErrorView } from '@/presentation/components/ErrorView'
 import { JsonView } from '@/presentation/components/JsonView'
 import { CopyButton } from '@/presentation/components/CopyButton'
@@ -12,13 +11,18 @@ import { useAppContainer } from '@/presentation/hooks/useAppContainer'
 import { useActiveAgent } from '@/presentation/hooks/useActiveAgent'
 import { useBalance } from '@/presentation/hooks/useBalance'
 import { useT } from '@/presentation/hooks/useT'
-import {
-  POLYGON_TOKENS, type Erc20Token,
-  isHexAddress, toBaseUnits, encodeErc20Transfer,
-} from '@/domain/erc20'
-import { TX_SEND_CHAINS, type TxSendRequest, type TxSendResponse } from '@/infrastructure/schemas/rest'
+import { TX_SEND_CHAINS, TX_SEND_TOKENS, type TxSendToken, type TxSendResponse } from '@/infrastructure/schemas/rest'
 
-type Mode = 'erc20' | 'raw'
+function isHexAddress(s: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(s)
+}
+
+function isPositiveDecimal(s: string): boolean {
+  if (!/^\d+(\.\d+)?$/.test(s)) return false
+  if (parseFloat(s) <= 0) return false
+  const [, frac = ''] = s.split('.')
+  return frac.length <= 6
+}
 
 function fmtCents(n: number): string {
   const usd = n / 100
@@ -37,43 +41,19 @@ export function SendTx() {
   const container = useAppContainer()
   const balance = useBalance()
 
-  const [mode, setMode] = useState<Mode>('erc20')
-
-  // ERC-20 mode
-  const [token, setToken] = useState<Erc20Token>(POLYGON_TOKENS[0]!)
-  const [recipient, setRecipient] = useState('')
-  const [amountHuman, setAmountHuman] = useState('')
-
-  // Raw mode
-  const [rawTo, setRawTo] = useState('')
-  const [rawData, setRawData] = useState('0x')
-  const [rawValue, setRawValue] = useState('0')
-
   const chain = TX_SEND_CHAINS[0]
+  const [token, setToken] = useState<TxSendToken>(TX_SEND_TOKENS[0]!)
+  const [recipient, setRecipient] = useState('')
+  const [amount, setAmount] = useState('')
 
-  const previewData = useMemo(() => {
-    if (mode !== 'erc20') return null
-    if (!isHexAddress(recipient)) return null
-    const base = toBaseUnits(amountHuman, token.decimals)
-    if (base === null) return null
-    try { return encodeErc20Transfer(recipient, base) } catch { return null }
-  }, [mode, recipient, amountHuman, token])
-
-  const canSubmit = useMemo(() => {
-    if (mode === 'erc20') return previewData !== null
-    if (!isHexAddress(rawTo)) return false
-    if (!/^0x[a-fA-F0-9]*$/.test(rawData)) return false
-    if (!/^\d+$/.test(rawValue)) return false
-    return true
-  }, [mode, previewData, rawTo, rawData, rawValue])
+  const canSubmit = isHexAddress(recipient) && isPositiveDecimal(amount)
 
   const send = useMutation({
     mutationFn: async (): Promise<TxSendResponse> => {
       if (!agent) throw new Error('no agent')
-      const req: TxSendRequest = mode === 'erc20'
-        ? { chain, to: token.address, data: previewData ?? '0x' }
-        : { chain, to: rawTo, data: rawData || '0x', value: rawValue || '0' }
-      const res = await container.useCases.sendSponsoredTransaction(agent.id, agent.apiKey, req)
+      const res = await container.useCases.sendSponsoredTransaction(agent.id, agent.apiKey, {
+        chain, token, to: recipient, amount,
+      })
       if (!res.ok) throw res.error
       return res.value
     },
@@ -97,23 +77,6 @@ export function SendTx() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-border bg-muted/30 p-1 grid grid-cols-2 gap-1 mb-5 max-w-sm mx-auto">
-          <button
-            type="button"
-            onClick={() => setMode('erc20')}
-            className={`py-1.5 text-sm rounded-md transition-colors ${mode === 'erc20' ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-          >
-            {t('tx.send.modeErc20')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('raw')}
-            className={`py-1.5 text-sm rounded-md transition-colors ${mode === 'raw' ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-          >
-            {t('tx.send.modeRaw')}
-          </button>
-        </div>
-
         <div className="mx-auto max-w-xl space-y-4">
           <div>
             <label className="text-xs text-muted-foreground block mb-1">{t('tx.send.chain')}</label>
@@ -122,103 +85,52 @@ export function SendTx() {
             </div>
           </div>
 
-          {mode === 'erc20' ? (
-            <>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">{t('tx.send.token')}</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {POLYGON_TOKENS.map((tk) => {
-                    const isActive = token.symbol === tk.symbol
-                    return (
-                      <button
-                        key={tk.symbol}
-                        type="button"
-                        onClick={() => setToken(tk)}
-                        className={`rounded-md px-2.5 py-1 text-xs transition-colors ${isActive ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
-                      >
-                        {tk.symbol}
-                      </button>
-                    )
-                  })}
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate">{token.address}</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">{t('tx.send.recipient')}</label>
-                <Input
-                  value={recipient}
-                  onChange={(e) => setRecipient(e.target.value)}
-                  placeholder="0x…"
-                  className="font-mono text-xs"
-                />
-                {recipient && !isHexAddress(recipient) ? (
-                  <p className="text-xs text-destructive mt-1">{t('tx.send.invalidAddr')}</p>
-                ) : null}
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">
-                  {t('tx.send.amount')} <span className="text-muted-foreground/60">({token.symbol}, {token.decimals} dec)</span>
-                </label>
-                <Input
-                  value={amountHuman}
-                  onChange={(e) => setAmountHuman(e.target.value)}
-                  placeholder="0.5"
-                  inputMode="decimal"
-                />
-              </div>
-              {previewData ? (
-                <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-1">
-                  <div className="text-[10px] text-muted-foreground">{t('tx.send.calldataPreview')}</div>
-                  <pre className="font-mono text-[10px] whitespace-pre-wrap break-all">{previewData}</pre>
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">{t('tx.send.to')}</label>
-                <Input
-                  value={rawTo}
-                  onChange={(e) => setRawTo(e.target.value)}
-                  placeholder="0x…"
-                  className="font-mono text-xs"
-                />
-                {rawTo && !isHexAddress(rawTo) ? (
-                  <p className="text-xs text-destructive mt-1">{t('tx.send.invalidAddr')}</p>
-                ) : null}
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">
-                  {t('tx.send.data')} <span className="normal-case text-muted-foreground/60">0x (default)</span>
-                </label>
-                <Textarea
-                  rows={3}
-                  value={rawData}
-                  onChange={(e) => setRawData(e.target.value)}
-                  placeholder="0x"
-                  className="font-mono text-xs"
-                />
-                {rawData && !/^0x[a-fA-F0-9]*$/.test(rawData) ? (
-                  <p className="text-xs text-destructive mt-1">{t('tx.send.invalidHex')}</p>
-                ) : null}
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">
-                  {t('tx.send.value')} <span className="normal-case text-muted-foreground/60">{t('tx.send.valueHint')}</span>
-                </label>
-                <Input
-                  value={rawValue}
-                  onChange={(e) => setRawValue(e.target.value)}
-                  placeholder="0"
-                  inputMode="numeric"
-                  className="font-mono text-xs"
-                />
-                {rawValue && !/^\d+$/.test(rawValue) ? (
-                  <p className="text-xs text-destructive mt-1">{t('tx.send.invalidDecimal')}</p>
-                ) : null}
-              </div>
-            </>
-          )}
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">{t('tx.send.token')}</label>
+            <div className="flex flex-wrap gap-1.5">
+              {TX_SEND_TOKENS.map((tk) => {
+                const isActive = token === tk
+                return (
+                  <button
+                    key={tk}
+                    type="button"
+                    onClick={() => setToken(tk)}
+                    className={`rounded-md px-2.5 py-1 text-xs transition-colors ${isActive ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                  >
+                    {tk}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">{t('tx.send.recipient')}</label>
+            <Input
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="0x…"
+              className="font-mono text-xs"
+            />
+            {recipient && !isHexAddress(recipient) ? (
+              <p className="text-xs text-destructive mt-1">{t('tx.send.invalidAddr')}</p>
+            ) : null}
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">
+              {t('tx.send.amount')} <span className="text-muted-foreground/60">({token}, {t('tx.send.amountHint')})</span>
+            </label>
+            <Input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.5"
+              inputMode="decimal"
+            />
+            {amount && !isPositiveDecimal(amount) ? (
+              <p className="text-xs text-destructive mt-1">{t('tx.send.invalidAmount')}</p>
+            ) : null}
+          </div>
 
           <Button className="w-full" onClick={() => send.mutate()} disabled={!canSubmit || send.isPending}>
             {send.isPending ? t('tx.send.sending') : t('tx.send.send')}
@@ -232,22 +144,21 @@ export function SendTx() {
           <h3 className="text-base font-semibold">{t('tx.send.receipt')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <ReceiptRow label={t('tx.send.txHash')} value={send.data.txHash} copy mono />
-            <ReceiptRow label={t('tx.send.userOpHash')} value={send.data.userOpHash} copy mono />
             <ReceiptRow label={t('tx.send.from')} value={send.data.from} copy mono />
-            <ReceiptRow label="chainId" value={String(send.data.chainId)} />
-            <ReceiptRow label={t('tx.send.gasUsed')} value={send.data.gasUsed} mono />
-            <ReceiptRow label={t('tx.send.actualGasCostWei')} value={send.data.actualGasCostWei} mono />
+            <ReceiptRow label={t('tx.send.toLabel')} value={send.data.to} copy mono />
+            <ReceiptRow label="chain" value={`${send.data.chain} · ${send.data.chainId}`} />
+            <ReceiptRow label={t('tx.send.tokenLabel')} value={send.data.tokenAddress ? `${send.data.token} · ${shortHex(send.data.tokenAddress)}` : send.data.token} />
+            <ReceiptRow label={t('tx.send.amountSent')} value={send.data.amount} mono emphasize />
+            {send.data.feeFormatted ? (
+              <ReceiptRow label={t('tx.send.fee')} value={send.data.feeFormatted + (send.data.feeCents !== undefined ? ` · ${fmtCents(send.data.feeCents)}` : '')} />
+            ) : null}
             <ReceiptRow label={t('tx.send.charged')} value={fmtCents(send.data.chargedCents)} emphasize />
-            <ReceiptRow label={t('tx.send.refunded')} value={fmtCents(send.data.refundedCents)} />
           </div>
-          <a
-            href={`https://polygonscan.com/tx/${send.data.txHash}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-primary underline"
-          >
-            {t('tx.send.openOnExplorer')} ↗
-          </a>
+          {send.data.explorerUrl ? (
+            <a href={send.data.explorerUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline">
+              {t('tx.send.openOnExplorer')} ↗
+            </a>
+          ) : null}
           <details className="text-xs">
             <summary className="cursor-pointer text-muted-foreground">{t('tx.send.rawJson')}</summary>
             <div className="mt-2">
