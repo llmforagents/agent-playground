@@ -144,6 +144,23 @@ export function normalizeMcpResult(raw: unknown): unknown {
             mimeType: declared ?? sniffImageMime(b64),
           }
         }
+        // The scraper screenshot tool wraps its PNG as { pngBase64, ... }.
+        if (typeof obj['pngBase64'] === 'string') {
+          return { type: 'image', data: obj['pngBase64'], mimeType: 'image/png' }
+        }
+        // The scraper pdf tool wraps its PDF as { pdfBase64, ... }. Convert
+        // to the MCP "resource" variant so the ScraperOneShot preview can
+        // render it via an iframe data URI.
+        if (typeof obj['pdfBase64'] === 'string') {
+          return {
+            type: 'resource',
+            resource: {
+              uri: 'inline://pdf',
+              mimeType: 'application/pdf',
+              blob: obj['pdfBase64'],
+            },
+          }
+        }
         // analyze_image and friends wrap the answer as
         // { "text": "...actual answer...", "costCents": n }. Unwrap so the
         // user sees the answer, not the JSON stringification.

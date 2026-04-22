@@ -34,6 +34,22 @@ describe('normalizeMcpResult', () => {
     expect(mime(webp)).toBe('image/webp')
   })
 
+  it('promotes scraper screenshot { pngBase64 } to an image item', () => {
+    const raw = { content: [{ type: 'text', text: JSON.stringify({ pngBase64: 'iVBORw0KGgo' }) }] }
+    const out = normalizeMcpResult(raw) as { content: { type: string; data: string; mimeType: string }[] }
+    expect(out.content[0]?.type).toBe('image')
+    expect(out.content[0]?.data).toBe('iVBORw0KGgo')
+    expect(out.content[0]?.mimeType).toBe('image/png')
+  })
+
+  it('promotes scraper pdf { pdfBase64 } to a resource item', () => {
+    const raw = { content: [{ type: 'text', text: JSON.stringify({ pdfBase64: 'JVBERi0x' }) }] }
+    const out = normalizeMcpResult(raw) as { content: { type: string; resource: { blob: string; mimeType: string } }[] }
+    expect(out.content[0]?.type).toBe('resource')
+    expect(out.content[0]?.resource?.blob).toBe('JVBERi0x')
+    expect(out.content[0]?.resource?.mimeType).toBe('application/pdf')
+  })
+
   it('accepts snake_case image_base64 and mime_type', () => {
     const raw = {
       content: [
