@@ -135,7 +135,7 @@ export function ScraperSessions() {
               <SessionCard
                 key={s.id}
                 session={s}
-                actionText={actionText[s.id] ?? DEFAULT_ACTION}
+                actionText={actionText[s.id] ?? ''}
                 onActionTextChange={(val) => setActionText((m) => ({ ...m, [s.id]: val }))}
                 onExec={() => execAction.mutate({ sessionId: s.id, action: actionText[s.id] ?? DEFAULT_ACTION })}
                 onStatus={() => statusCheck.mutate(s.id)}
@@ -204,6 +204,7 @@ function SessionCard({
           value={actionText}
           onChange={(e) => onActionTextChange(e.target.value)}
           className="font-mono text-xs"
+          placeholder={DEFAULT_ACTION}
         />
       </div>
 

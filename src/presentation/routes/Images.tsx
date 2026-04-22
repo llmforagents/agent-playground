@@ -51,7 +51,7 @@ export function Images() {
   const container = useAppContainer()
   const [tool, setTool] = useState<ImageTool>('generate_image')
 
-  const [prompt, setPrompt] = useState('A neon-lit dashboard on a developer desk, cinematic')
+  const [prompt, setPrompt] = useState('')
   const [width, setWidth] = useState(1024)
   const [height, setHeight] = useState(1024)
 
@@ -59,7 +59,7 @@ export function Images() {
   const [sourceImage, setSourceImage] = useState('')
   const [aspect, setAspect] = useState('')
 
-  const [question, setQuestion] = useState('What is in this image? Describe it in detail.')
+  const [question, setQuestion] = useState('')
 
   const run = useMutation({
     mutationFn: async (): Promise<McpToolResult> => {
@@ -120,7 +120,7 @@ export function Images() {
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   rows={3}
-                  placeholder="A neon-lit dashboard…"
+                  placeholder="A neon-lit dashboard on a developer desk, cinematic"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -190,6 +190,7 @@ export function Images() {
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   rows={3}
+                  placeholder="What is in this image? Describe it in detail."
                 />
               </div>
               <div>

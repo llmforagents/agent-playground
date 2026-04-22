@@ -43,10 +43,10 @@ export function ScraperOneShot() {
   const agent = useActiveAgent()
   const container = useAppContainer()
   const [tool, setTool] = useState<OneShotTool>('fetch_html')
-  const [url, setUrl] = useState('https://example.com')
+  const [url, setUrl] = useState('')
   const [tier, setTier] = useState<ProxyTier>('none')
   const [selectorText, setSelectorText] = useState('')
-  const [extractMap, setExtractMap] = useState('{\n  "title": "h1"\n}')
+  const [extractMap, setExtractMap] = useState('')
 
   const run = useMutation({
     mutationFn: async (): Promise<McpToolResult> => {
@@ -102,7 +102,7 @@ export function ScraperOneShot() {
         <div className="space-y-4">
           <div>
             <label className="text-xs text-muted-foreground block mb-1">{t('scraper.url')}</label>
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" />
           </div>
 
           <div>
@@ -129,6 +129,7 @@ export function ScraperOneShot() {
                 onChange={(e) => setExtractMap(e.target.value)}
                 rows={5}
                 className="font-mono text-xs"
+                placeholder={'{\n  "title": "h1"\n}'}
               />
             </div>
           ) : null}
