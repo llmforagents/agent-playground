@@ -38,6 +38,8 @@ Each route in the sidebar maps to one API surface:
 
 The agentic chat can invoke every search / scraper / image tool mid-conversation. Images are rendered inline in the assistant bubble. The `/tx` endpoint is deliberately **not** exposed to the chat — moving real money on-chain needs an explicit user click.
 
+For the full list of tools wired to chat vs those only available through dedicated routes (and *why*), see [`docs/chat-tools.md`](docs/chat-tools.md).
+
 ### Cost protections on the chat
 
 Three guardrails prevent runaway charges when a model loops:
