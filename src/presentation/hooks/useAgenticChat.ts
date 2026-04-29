@@ -73,9 +73,7 @@ export function useAgenticChat() {
           return
         } else if (ev.kind === 'aborted') {
           const msgKey =
-            ev.reason === 'one_tool_policy' ? 'chat.abortedOneTool'
-              : ev.reason === 'tool_cap_reached' ? 'chat.abortedCap'
-                : 'chat.abortedToolFailed'
+            ev.reason === 'tool_cap_reached' ? 'chat.abortedCap' : 'chat.abortedToolFailed'
           setState({
             status: 'error',
             error: { kind: 'unknown', message: t(msgKey, { tool: ev.toolName, detail: ev.detail }), raw: null },

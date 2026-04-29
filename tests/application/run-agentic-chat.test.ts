@@ -85,26 +85,52 @@ describe('runAgenticChat cost guards', () => {
     expect(chatCalls).toBe(1)
   })
 
-  it('aborts on a second tool call after the first one succeeded (one-tool-per-turn policy)', async () => {
+  it('allows multi-step tool calls — model can search, then search again, then synthesize', async () => {
     let mcpCalls = 0
     const mcp: McpPort = {
       callTool: async (): Promise<Result<McpToolResult, McpError>> => {
         mcpCalls++
-        return Ok({ content: [{ type: 'text' as const, text: 'result' }] })
+        return Ok({ content: [{ type: 'text' as const, text: `result_${mcpCalls}` }] })
       },
     }
     const rest = chatWith([
       { tool_calls: [tc('google_search', { q: 'x' })] },
-      { tool_calls: [tc('google_news',   { q: 'y' })] }, // different tool + args — still aborts
+      { tool_calls: [tc('google_news',   { q: 'y' })] }, // different tool + args — should run
+      { content: 'Here are the results based on both searches.' },
     ])
     const events = await collect(runAgenticChat(
       { rest, mcp, key: KEY, agent: AGENT },
       { model: 'openai/gpt-4', messages: [{ role: 'user', content: 'hi' }], mode: 'native', maxIterations: 5 },
     ))
-    expect(mcpCalls).toBe(1)
+    // Both MCP calls executed — no premature abort.
+    expect(mcpCalls).toBe(2)
+    expect(events.find((e) => e.kind === 'aborted')).toBeUndefined()
+    const final = events.find((e) => e.kind === 'final')
+    expect(final?.kind === 'final' && final.text).toBe('Here are the results based on both searches.')
+  })
+
+  it('still hard-caps at MAX_TOOL_CALLS_PER_RUN to prevent runaway loops', async () => {
+    let mcpCalls = 0
+    const mcp: McpPort = {
+      callTool: async (): Promise<Result<McpToolResult, McpError>> => {
+        mcpCalls++
+        return Ok({ content: [{ type: 'text' as const, text: `result_${mcpCalls}` }] })
+      },
+    }
+    // Model insists on tool calls forever — cap should fire on the 4th request.
+    const rest = chatWith([
+      { tool_calls: [tc('google_search', { q: 'a' })] },
+      { tool_calls: [tc('google_search', { q: 'b' })] },
+      { tool_calls: [tc('google_search', { q: 'c' })] },
+      { tool_calls: [tc('google_search', { q: 'd' })] },
+    ])
+    const events = await collect(runAgenticChat(
+      { rest, mcp, key: KEY, agent: AGENT },
+      { model: 'openai/gpt-4', messages: [{ role: 'user', content: 'hi' }], mode: 'native', maxIterations: 10 },
+    ))
+    expect(mcpCalls).toBe(3)
     const aborted = events.find((e) => e.kind === 'aborted')
-    expect(aborted?.kind === 'aborted' && aborted.reason).toBe('one_tool_policy')
-    expect(events.find((e) => e.kind === 'final')).toBeUndefined()
+    expect(aborted?.kind === 'aborted' && aborted.reason).toBe('tool_cap_reached')
   })
 
   it('aborts when the model retries a previously failed tool with the same args', async () => {
