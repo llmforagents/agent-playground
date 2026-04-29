@@ -122,6 +122,8 @@ export function Chat() {
     if (lastAgenticDoneRef.current === agentic.state) return
     lastAgenticDoneRef.current = agentic.state
     const { steps, text } = agentic.state
+    // Skip empty agentic results (no text + no steps) — nothing to render.
+    if (!text && steps.length === 0) return
     setEntries((m) => [...m, { kind: 'agentic', steps, finalText: text }])
   }, [agentic.state, setEntries])
 
