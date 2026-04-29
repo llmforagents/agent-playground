@@ -11,26 +11,48 @@ import { ToolsViewer } from '@/presentation/components/ToolsViewer'
 import { useModels } from '@/presentation/hooks/useModels'
 import { useBalance } from '@/presentation/hooks/useBalance'
 import { useChatStream } from '@/presentation/hooks/useChatStream'
-import { useAgenticChat, type AgenticStep } from '@/presentation/hooks/useAgenticChat'
+import { useAgenticChat } from '@/presentation/hooks/useAgenticChat'
 import { useActiveAgent } from '@/presentation/hooks/useActiveAgent'
 import { useT } from '@/presentation/hooks/useT'
-import type { ChatMessage } from '@/domain/chat'
+import type { ChatMessage, AgenticStep, ConversationEntry } from '@/domain/chat'
+import { useChatStore, DEFAULT_CHAT } from '@/presentation/hooks/useChatStore'
 import { DEFAULT_MODEL } from '@/domain/defaults'
 
 type Role = ChatMessage['role']
-type ConversationEntry =
-  | { readonly kind: 'msg'; readonly role: Role; readonly content: string }
-  | { readonly kind: 'agentic'; readonly steps: readonly AgenticStep[]; readonly finalText: string }
 
 export function Chat() {
   const t = useT()
   const agent = useActiveAgent()
   const balance = useBalance()
   const models = useModels()
-  const [model, setModel] = useState<string>(DEFAULT_MODEL)
-  const [entries, setEntries] = useState<readonly ConversationEntry[]>([])
+  const chat = useChatStore((s) => (agent ? s.byAgent[agent.id] : undefined)) ?? DEFAULT_CHAT
+  const setChatBucket = useChatStore((s) => s.setChat)
+
+  const entries  = chat.entries
+  const model    = chat.model
+  const toolsOn  = chat.toolsOn
+
+  const setEntries = useCallback((next: readonly ConversationEntry[] | ((prev: readonly ConversationEntry[]) => readonly ConversationEntry[])): void => {
+    if (!agent) return
+    const current = useChatStore.getState().byAgent[agent.id] ?? DEFAULT_CHAT
+    const resolved = typeof next === 'function' ? next(current.entries) : next
+    setChatBucket(agent.id, { ...current, entries: resolved })
+  }, [agent, setChatBucket])
+
+  const setModel = useCallback((m: string): void => {
+    if (!agent) return
+    const current = useChatStore.getState().byAgent[agent.id] ?? DEFAULT_CHAT
+    setChatBucket(agent.id, { ...current, model: m })
+  }, [agent, setChatBucket])
+
+  const setToolsOn = useCallback((updater: boolean | ((prev: boolean) => boolean)): void => {
+    if (!agent) return
+    const current = useChatStore.getState().byAgent[agent.id] ?? DEFAULT_CHAT
+    const next = typeof updater === 'function' ? updater(current.toolsOn) : updater
+    setChatBucket(agent.id, { ...current, toolsOn: next })
+  }, [agent, setChatBucket])
+
   const [input, setInput] = useState('')
-  const [toolsOn, setToolsOn] = useState(true)
 
   const stream = useChatStream()
   const agentic = useAgenticChat()
