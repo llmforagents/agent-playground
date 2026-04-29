@@ -1,5 +1,5 @@
 import type { AgentId, ApiKey } from '@/domain/branded'
-import type { ChatMessage } from '@/domain/chat'
+import type { ChatMessage, DispatchMode } from '@/domain/chat'
 import type { AppError, RestError } from '@/domain/errors'
 import type { ChatResponseMeta, McpPort, RestApiPort } from '@/application/ports'
 import type {
@@ -9,6 +9,8 @@ import type {
 } from '@/infrastructure/schemas/rest'
 import type { McpToolResult } from '@/infrastructure/schemas/mcp'
 import { CHAT_TOOLS, findChatTool } from '@/domain/chatTools'
+
+export type { DispatchMode }
 
 export type AgenticAbortReason = 'tool_failed' | 'tool_cap_reached'
 
@@ -22,8 +24,6 @@ export type AgenticEvent =
   | { readonly kind: 'max_iterations' }
   | { readonly kind: 'aborted'; readonly reason: AgenticAbortReason; readonly toolName: string; readonly detail: string }
   | { readonly kind: 'error'; readonly error: AppError }
-
-export type DispatchMode = 'native' | 'prompt'
 
 const DEFAULT_MAX_ITERATIONS = 5
 const MAX_TOOL_CALLS_PER_RUN = 3

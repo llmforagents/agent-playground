@@ -2,16 +2,12 @@ import { useCallback, useRef, useState } from 'react'
 import { useAppContainer } from './useAppContainer'
 import { useActiveAgent } from './useActiveAgent'
 import type { ChatResponseMeta } from '@/application/ports'
-import type { ChatMessage } from '@/domain/chat'
+import type { ChatMessage, DispatchMode, AgenticStep } from '@/domain/chat'
 import type { AppError } from '@/domain/errors'
 import { coerceToAppError } from '@/domain/errors'
-import type { DispatchMode } from '@/application/runAgenticChat'
 import { useT } from './useT'
 
-export type AgenticStep =
-  | { readonly kind: 'assistant_text'; readonly text: string }
-  | { readonly kind: 'mode_fallback'; readonly from: DispatchMode; readonly to: DispatchMode; readonly reason: string }
-  | { readonly kind: 'tool'; readonly callId: string; readonly toolName: string; readonly args: unknown; readonly status: 'running' | 'ok' | 'error'; readonly summary?: string; readonly raw?: unknown }
+export type { AgenticStep }
 
 export type AgenticChatState =
   | { readonly status: 'idle' }
