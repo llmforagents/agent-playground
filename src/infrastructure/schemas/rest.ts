@@ -215,39 +215,3 @@ export const CLAIM_ERROR_CODES = [
 ] as const
 export type ClaimErrorCode = (typeof CLAIM_ERROR_CODES)[number]
 
-export const TX_SEND_CHAINS = ['polygon'] as const
-export type TxSendChain = (typeof TX_SEND_CHAINS)[number]
-
-export const TX_SEND_TOKENS = ['USDC'] as const
-export type TxSendToken = (typeof TX_SEND_TOKENS)[number]
-
-const HexAddressField = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'must be 0x + 40 hex chars')
-const PositiveDecimalField = z.string().regex(/^\d+(\.\d+)?$/, 'must be a positive decimal (up to 6 fraction digits)')
-const Hex32Field = z.string().regex(/^0x[a-fA-F0-9]{64}$/)
-
-export const TxSendRequestSchema = z.object({
-  chain: z.enum(TX_SEND_CHAINS),
-  token: z.string().min(1),
-  to: HexAddressField,
-  amount: PositiveDecimalField,
-})
-export type TxSendRequest = z.infer<typeof TxSendRequestSchema>
-
-export const TxSendResponseSchema = z.object({
-  txHash: Hex32Field,
-  explorerUrl: z.string().url().optional(),
-  from: HexAddressField,
-  to: HexAddressField,
-  chain: z.string(),
-  chainId: z.number().int().positive(),
-  token: z.string(),
-  tokenAddress: HexAddressField.optional(),
-  amount: z.string(),
-  amountBaseUnits: z.string().optional(),
-  feeBaseUnits: z.string().optional(),
-  feeFormatted: z.string().optional(),
-  feeCents: z.number().nonnegative().optional(),
-  chargedCents: z.number().nonnegative(),
-  requestId: z.string().optional(),
-}).loose()
-export type TxSendResponse = z.infer<typeof TxSendResponseSchema>

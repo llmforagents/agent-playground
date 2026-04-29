@@ -19,8 +19,7 @@ const STEPS: readonly Step[] = [
   { number: 5, titleKey: 'guide.step5Title', bodyKey: 'guide.step5Body', cta: { to: '/chat', labelKey: 'guide.step5Cta' } },
   { number: 6, titleKey: 'guide.step6Title', bodyKey: 'guide.step6Body' },
   { number: 7, titleKey: 'guide.step7Title', bodyKey: 'guide.step7Body', cta: { to: '/images', labelKey: 'guide.step7Cta' } },
-  { number: 8, titleKey: 'guide.step8Title', bodyKey: 'guide.step8Body', cta: { to: '/tx', labelKey: 'guide.step8Cta' } },
-  { number: 9, titleKey: 'guide.step9Title', bodyKey: 'guide.step9Body', cta: { to: '/transactions', labelKey: 'guide.step9Cta' } },
+  { number: 8, titleKey: 'guide.step9Title', bodyKey: 'guide.step9Body', cta: { to: '/transactions', labelKey: 'guide.step9Cta' } },
 ]
 
 const TIPS: readonly { titleKey: MessageKey; bodyKey: MessageKey }[] = [

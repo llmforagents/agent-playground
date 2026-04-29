@@ -5,7 +5,7 @@ import type {
   HealthzResponse, RegisterAgentRequest, RegisterAgentResponse,
   BalanceResponse, GenerateWalletRequest, GenerateWalletResponse,
   ModelsResponse, ChatCompletionRequest, ChatCompletionResponse,
-  TransactionsResponse, TxSendRequest, TxSendResponse,
+  TransactionsResponse,
   ClaimRequest, ClaimResponse,
 } from '@/infrastructure/schemas/rest'
 import type { McpToolResult } from '@/infrastructure/schemas/mcp'
@@ -45,7 +45,6 @@ export interface RestApiPort {
   listTransactions(key: ApiKey, params: Readonly<{
     type?: 'deposit' | 'usage' | 'refund'; limit?: number; offset?: number
   }>): Promise<Result<TransactionsResponse, RestError>>
-  sendTx(key: ApiKey, req: TxSendRequest): Promise<Result<TxSendResponse, RestError>>
   claimPlaygroundCredit(req: ClaimRequest): Promise<Result<ClaimResponse, RestError>>
 }
 

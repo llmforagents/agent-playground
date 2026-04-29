@@ -17,16 +17,6 @@ function fakes() {
     chatCompletion: vi.fn(async () => Ok({ data: { id: 'x', object: 'chat.completion', created: 0, model: 'm', choices: [{ index: 0, message: { role: 'assistant' as const, content: 'hi' } }] }, meta: { costCents: 2 } })),
     chatCompletionStream: vi.fn(async function* () {}),
     listTransactions: vi.fn(async () => Ok({ transactions: [], total: 0, limit: 50, offset: 0 })),
-    sendTx: vi.fn(async () => Ok({
-      txHash: '0x' + 'b'.repeat(64),
-      from: '0x' + 'c'.repeat(40),
-      to: '0x' + 'd'.repeat(40),
-      chain: 'polygon',
-      chainId: 137,
-      token: 'USDC',
-      amount: '0.5',
-      chargedCents: 1,
-    })),
     claimPlaygroundCredit: vi.fn(async () => Ok({
       claimed: true as const,
       creditedCents: 50,
