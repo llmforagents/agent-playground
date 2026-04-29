@@ -630,7 +630,7 @@ const ES: Record<MessageKey, string> = {
   'chat.reasoning.empty': '(sin razonamiento)',
   'chat.reasoning.thinking': 'Pensando…',
   'chat.reasoning.notSupported': 'Este modelo no soporta razonamiento',
-  'chat.effort.label': 'Effort',
+  'chat.effort.label': 'Esfuerzo',
   'chat.effort.off': 'Off',
   'chat.effort.low': 'Bajo',
   'chat.effort.medium': 'Medio',

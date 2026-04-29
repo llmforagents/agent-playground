@@ -56,7 +56,7 @@ export function Chat() {
     setChatBucket(agent.id, { ...current, toolsOn: next })
   }, [agent, setChatBucket])
 
-  const effort = chat.effort
+  const effort: Effort = chat.effort ?? 'off'
   const setEffort = useCallback((next: Effort): void => {
     if (!agent) return
     const current = useChatStore.getState().byAgent[agent.id] ?? DEFAULT_CHAT
@@ -255,7 +255,13 @@ export function Chat() {
           )}
 
           {stream.state.status === 'streaming' ? (
-            <Bubble role="assistant" content={stream.state.partial} reasoning={stream.state.partialReasoning} streaming t={t} />
+            <Bubble
+              role="assistant"
+              content={stream.state.partial}
+              {...(stream.state.partialReasoning ? { reasoning: stream.state.partialReasoning } : {})}
+              streaming
+              t={t}
+            />
           ) : null}
 
           {agentic.state.status === 'running' ? (
@@ -333,8 +339,8 @@ function Bubble({ role, content, reasoning, streaming = false, t }: { role: Role
         <div className="text-[10px] text-muted-foreground mb-1">
           {roleLabel}{streaming ? ` · ${t('chat.streaming')}` : ''}
         </div>
-        {isAssistant && (reasoning || streaming) ? (
-          <ReasoningBlock reasoning={reasoning ?? ''} isStreaming={streaming} />
+        {isAssistant && reasoning ? (
+          <ReasoningBlock reasoning={reasoning} isStreaming={streaming} />
         ) : null}
         <div
           className={`rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words max-w-[85%] ${

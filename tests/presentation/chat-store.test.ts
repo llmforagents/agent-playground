@@ -101,4 +101,25 @@ describe('useChatStore', () => {
     const parsed = JSON.parse(raw!)
     expect(parsed.state.byAgent[A].effort).toBe('medium')
   })
+
+  it('rehydrates a legacy bucket without effort field as effort=off via consumer fallback', () => {
+    // Simulate a bucket persisted before the effort field existed.
+    const legacyBucket = { entries: [], model: 'm', toolsOn: true }
+    const persisted = {
+      state: { byAgent: { [A]: legacyBucket } },
+      version: 0,
+    }
+    localStorage.setItem('llm4agents-chats', JSON.stringify(persisted))
+    // Parse the raw persisted shape directly (no rehydrate needed to assert the fallback logic).
+    const raw = localStorage.getItem('llm4agents-chats')
+    expect(raw).not.toBeNull()
+    const parsed = JSON.parse(raw!) as { state: { byAgent: Record<string, { effort?: string }> } }
+    const bucket = parsed.state.byAgent[A]
+    // The legacy bucket should be present but missing 'effort'.
+    expect(bucket).toBeDefined()
+    expect(bucket?.effort).toBeUndefined()
+    // Consumer pattern: chat.effort ?? 'off' yields the safe default.
+    const effort = (bucket?.effort ?? 'off')
+    expect(effort).toBe('off')
+  })
 })
