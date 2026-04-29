@@ -69,6 +69,8 @@ export function Chat() {
   const agentic = useAgenticChat()
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const lastStreamDoneRef = useRef<unknown>(null)
+  const lastAgenticDoneRef = useRef<unknown>(null)
   const [isPinned, setIsPinned] = useState(true)
   const [hasNew, setHasNew] = useState(false)
 
@@ -98,27 +100,29 @@ export function Chat() {
   }, [entries, stream.state, agentic.state, isPinned, scrollToBottom])
 
   useEffect(() => {
-    if (stream.state.status === 'done') {
-      const { fullText, fullReasoning } = stream.state
-      if (fullText) {
-        setEntries((m) => [
-          ...m,
-          {
-            kind: 'msg',
-            role: 'assistant',
-            content: fullText,
-            ...(fullReasoning ? { reasoning: fullReasoning } : {}),
-          },
-        ])
-      }
-    }
+    if (stream.state.status !== 'done') return
+    // Guard against re-firing for the same done state when other deps change identity.
+    if (lastStreamDoneRef.current === stream.state) return
+    lastStreamDoneRef.current = stream.state
+    const { fullText, fullReasoning } = stream.state
+    if (!fullText) return
+    setEntries((m) => [
+      ...m,
+      {
+        kind: 'msg',
+        role: 'assistant',
+        content: fullText,
+        ...(fullReasoning ? { reasoning: fullReasoning } : {}),
+      },
+    ])
   }, [stream.state, setEntries])
 
   useEffect(() => {
-    if (agentic.state.status === 'done') {
-      const { steps, text } = agentic.state
-      setEntries((m) => [...m, { kind: 'agentic', steps, finalText: text }])
-    }
+    if (agentic.state.status !== 'done') return
+    if (lastAgenticDoneRef.current === agentic.state) return
+    lastAgenticDoneRef.current = agentic.state
+    const { steps, text } = agentic.state
+    setEntries((m) => [...m, { kind: 'agentic', steps, finalText: text }])
   }, [agentic.state, setEntries])
 
   const chatMessages = useMemo((): readonly ChatMessage[] => {
