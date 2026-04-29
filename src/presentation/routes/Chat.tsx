@@ -201,34 +201,36 @@ export function Chat() {
 
   return (
     <div className="mx-auto max-w-4xl h-[calc(100vh-9rem)] flex flex-col gap-3">
-      <Card className="p-3 md:p-4 flex-shrink-0 overflow-visible relative z-30">
-        <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-          <div className="w-full md:w-auto md:flex-1 md:min-w-[20rem]">
-            <ModelPicker
-              models={models.data?.models ?? []}
-              value={model}
-              onChange={setModel}
-            />
-          </div>
-          <div className="flex items-center gap-2 md:ml-auto flex-wrap">
-            <button
-              type="button"
-              onClick={() => setToolsOn((v) => !v)}
-              className={`h-9 rounded-lg border px-3 text-xs flex items-center gap-1.5 transition-colors ${toolsOn ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-              title={toolsOn ? t('chat.toolsOnHint') : t('chat.toolsOffHint')}
-            >
-              <WrenchIcon className="size-3.5" />
-              {toolsOn ? t('chat.toolsOn') : t('chat.toolsOff')}
-            </button>
-            <ToolsViewer />
-            <EffortSelector model={model} value={effort} onChange={setEffort} />
-            <Button size="sm" variant="ghost" onClick={clear} disabled={entries.length === 0 || busy}>
-              {t('common.clear')}
-            </Button>
-          </div>
+      <Card className="p-3 md:p-4 flex-shrink-0 overflow-visible relative z-30 space-y-3">
+        <ModelPicker
+          models={models.data?.models ?? []}
+          value={model}
+          onChange={setModel}
+        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setToolsOn((v) => !v)}
+            className={`h-9 rounded-lg border px-3 text-xs flex items-center gap-1.5 transition-colors ${toolsOn ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+            title={toolsOn ? t('chat.toolsOnHint') : t('chat.toolsOffHint')}
+          >
+            <WrenchIcon className="size-3.5" />
+            {toolsOn ? t('chat.toolsOn') : t('chat.toolsOff')}
+          </button>
+          <ToolsViewer />
+          <EffortSelector model={model} value={effort} onChange={setEffort} />
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={clear}
+            disabled={entries.length === 0 || busy}
+            className="ml-auto"
+          >
+            {t('common.clear')}
+          </Button>
         </div>
         {doneMeta ? (
-          <div className="mt-2 pt-2 border-t border-border/50 flex justify-end">
+          <div className="pt-2 border-t border-border/50 flex justify-end">
             <CostBadge meta={doneMeta} />
           </div>
         ) : null}
