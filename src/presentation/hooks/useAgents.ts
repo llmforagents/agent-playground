@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAppContainer } from './useAppContainer'
+import { useChatStore } from './useChatStore'
 import type { Agent } from '@/domain/agent'
 import type { AgentId } from '@/domain/branded'
 
@@ -25,7 +26,10 @@ export function useAgents() {
 
   const remove = useMutation({
     mutationFn: async (id: AgentId) => container.useCases.removeAgentLocal(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: KEY })
+      useChatStore.getState().clearChat(id)
+    },
   })
 
   return { listQuery, register, remove }
