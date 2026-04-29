@@ -64,6 +64,7 @@ IMPORTANT behavior:
 - If the user writes in Spanish, respond in Spanish. The tool arguments should be in the appropriate language for the query.
 - After getting tool results, summarize the answer clearly and cite sources (URLs) when relevant.
 - If a tool fails, briefly explain and try a different approach.
+- Prefer ONE combined search query when asking about multiple related items (e.g. "Bitcoin Ethereum Solana price today" instead of three separate searches).
 - CRITICAL for image tools: generate_image and edit_image succeed when they return an "image" content block. The image has already been rendered to the user by the client. After a successful image call, reply with ONE short confirmation sentence. Do NOT call the image tool again. Do NOT try to include the base64 in your reply. Do NOT describe what you drew unless the user asks.
 - Never call the same tool with the same arguments twice in one conversation — the second call will cost money and return the same result.`
 
@@ -363,6 +364,36 @@ export async function* runAgenticChat(
       const first = mcpRes.value.content[0]
       const finalText = first?.type === 'text' ? first.text : ''
       yield { kind: 'final', text: finalText, meta: lastMeta }
+      return
+    }
+  }
+
+  // Synthesis fallback: if we exhausted iterations but have tool results in hand,
+  // make ONE final chat completion WITHOUT tools to force the model to summarize
+  // what it learned. Beats showing a "max_iterations" error when we have data.
+  const hasUsefulHistory = toolHistory.some((h) => h.ok && !h.resultText.startsWith('Already called'))
+  if (hasUsefulHistory) {
+    const messages: ChatMessageFull[] = [
+      { role: 'system', content: buildSystemPrompt(mode, toolHistory) + '\n\n=== Final synthesis ===\nRespond NOW using only the tool results above. Do NOT call more tools — they will be ignored. Combine the data into a clear answer for the user.' },
+      ...userConversation,
+    ]
+    const synthReq: ChatCompletionRequest = {
+      model: params.model,
+      messages: messages as ChatCompletionRequest['messages'],
+      stream: false,
+      // Deliberately omit `tools` so the model cannot request more.
+    }
+    const synthRes = await deps.rest.chatCompletion(deps.key, synthReq)
+    if (synthRes.ok) {
+      const choice = synthRes.value.data.choices[0]
+      const text = choice?.message.content ?? ''
+      const reasoning = typeof choice?.message.reasoning === 'string' && choice.message.reasoning.length > 0
+        ? choice.message.reasoning
+        : undefined
+      if (reasoning) {
+        yield { kind: 'assistant_text', text: '', reasoning }
+      }
+      yield { kind: 'final', text, meta: synthRes.value.meta }
       return
     }
   }

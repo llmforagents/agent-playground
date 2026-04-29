@@ -267,4 +267,99 @@ describe('runAgenticChat cost guards', () => {
     const finalEv = events.find((e) => e.kind === 'final')
     expect(finalEv?.kind === 'final' && finalEv.text).toBe('Final answer.')
   })
+
+  it('forces a synthesis turn when max_iterations is reached with tools already executed', async () => {
+    let chatCalls = 0
+    let synthCallSawTools = true
+    const mcp: McpPort = {
+      callTool: async (): Promise<Result<McpToolResult, McpError>> =>
+        Ok({ content: [{ type: 'text' as const, text: 'price data' }] }),
+    }
+    const rest: RestApiPort = {
+      ...chatWith([]),
+      chatCompletion: async (_key, req) => {
+        chatCalls++
+        // Track whether the synthesis call (the last one) was made WITHOUT tools.
+        if (req.tools === undefined) synthCallSawTools = false
+        // First N calls: keep returning tool_calls so the loop hits max_iterations.
+        // Final call (the synthesis one): return plain content.
+        if (req.tools === undefined) {
+          return Ok({
+            data: {
+              id: 'synth', object: 'chat.completion', created: 0, model: 'test',
+              choices: [{
+                index: 0,
+                message: { role: 'assistant' as const, content: 'Combined answer from tool data.' },
+              }],
+            },
+            meta: { costCents: 1 },
+          })
+        }
+        return Ok({
+          data: {
+            id: `id_${chatCalls}`, object: 'chat.completion', created: 0, model: 'test',
+            choices: [{
+              index: 0,
+              message: {
+                role: 'assistant' as const,
+                content: null,
+                tool_calls: [tc('google_search', { q: `query_${chatCalls}` })],
+              },
+            }],
+          },
+          meta: { costCents: 1 },
+        })
+      },
+    }
+    const events = await collect(runAgenticChat(
+      { rest, mcp, key: KEY, agent: AGENT },
+      { model: 'openai/gpt-4', messages: [{ role: 'user', content: 'hi' }], mode: 'native', maxIterations: 3 },
+    ))
+
+    // No max_iterations event — the synthesis fallback should win.
+    expect(events.find((e) => e.kind === 'max_iterations')).toBeUndefined()
+
+    // A final event with the synthesis text.
+    const finalEv = events.find((e) => e.kind === 'final')
+    expect(finalEv?.kind === 'final' && finalEv.text).toBe('Combined answer from tool data.')
+
+    // The synthesis call was made without `tools` field.
+    expect(synthCallSawTools).toBe(false)
+  })
+
+  it('still yields max_iterations when no tools were ever executed (no synthesis to fall back on)', async () => {
+    // Model insists on tool_calls, but every tool errors out (cost guard 3 aborts before history fills).
+    // We need a different scenario: model never calls tools, never produces text — pathological.
+    // Easiest way: model returns empty content with no tool_calls in every iteration.
+    let chatCalls = 0
+    const rest: RestApiPort = {
+      ...chatWith([]),
+      chatCompletion: async () => {
+        chatCalls++
+        return Ok({
+          data: {
+            id: `id_${chatCalls}`, object: 'chat.completion', created: 0, model: 'test',
+            choices: [{
+              index: 0,
+              // Empty content + no tool_calls → 'final' step with empty text → loop terminates with final, not max_iterations.
+              // To force max_iterations we'd need a non-empty content treated as "not really final". But this code treats empty content as final too.
+              message: { role: 'assistant' as const, content: null },
+            }],
+          },
+          meta: {},
+        })
+      },
+    }
+    // The above scenario yields a 'final' on iter 1 (because empty content == final). Skip this test pattern.
+    // Instead: just verify that with maxIterations: 0, max_iterations fires immediately (no tools possible).
+    // Actually, with maxIterations: 0, the for loop never enters, so max_iterations fires.
+    const events = await collect(runAgenticChat(
+      { rest, mcp: { callTool: async () => Ok({ content: [{ type: 'text' as const, text: 'x' }] }) }, key: KEY, agent: AGENT },
+      { model: 'openai/gpt-4', messages: [{ role: 'user', content: 'hi' }], mode: 'native', maxIterations: 0 },
+    ))
+    // With maxIterations=0, no chat call happened → no toolHistory → max_iterations fires (no synthesis path).
+    expect(events.find((e) => e.kind === 'max_iterations')).toBeDefined()
+    expect(events.find((e) => e.kind === 'final')).toBeUndefined()
+    expect(chatCalls).toBe(0)
+  })
 })
