@@ -27,8 +27,8 @@ export function useAgents() {
   const remove = useMutation({
     mutationFn: async (id: AgentId) => container.useCases.removeAgentLocal(id),
     onSuccess: (_, id) => {
-      qc.invalidateQueries({ queryKey: KEY })
       useChatStore.getState().clearChat(id)
+      return qc.invalidateQueries({ queryKey: KEY })
     },
   })
 

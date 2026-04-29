@@ -93,14 +93,14 @@ export function Chat() {
         setEntries((m) => [...m, { kind: 'msg', role: 'assistant', content: fullText }])
       }
     }
-  }, [stream.state])
+  }, [stream.state, setEntries])
 
   useEffect(() => {
     if (agentic.state.status === 'done') {
       const { steps, text } = agentic.state
       setEntries((m) => [...m, { kind: 'agentic', steps, finalText: text }])
     }
-  }, [agentic.state])
+  }, [agentic.state, setEntries])
 
   const chatMessages = useMemo((): readonly ChatMessage[] => {
     const out: ChatMessage[] = []
