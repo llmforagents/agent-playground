@@ -25,10 +25,13 @@ function maskKey(k: string): string {
 
 export function Agents() {
   const t = useT()
-  const { listQuery, register, remove } = useAgents()
+  const { listQuery, register, importAgent, remove } = useAgents()
   const active = useAppStore((s) => s.activeAgentId)
   const setActive = useAppStore((s) => s.setActiveAgent)
   const [name, setName] = useState('')
+  const [impName, setImpName] = useState('')
+  const [impId, setImpId] = useState('')
+  const [impKey, setImpKey] = useState('')
 
   const onCreate = async (): Promise<void> => {
     if (!name.trim()) return
@@ -39,6 +42,21 @@ export function Agents() {
       setName('')
     } catch {
       /* error shown via register.error */
+    }
+  }
+
+  const onImport = async (): Promise<void> => {
+    const n = impName.trim()
+    const id = impId.trim()
+    const key = impKey.trim()
+    if (!n || !id || !key) return
+    try {
+      const created = await importAgent.mutateAsync({ name: n, id, apiKey: key, color: pickColor(n) })
+      if (!active) setActive(created.id)
+      toast.success('Agente importado', { description: n })
+      setImpName(''); setImpId(''); setImpKey('')
+    } catch {
+      /* error shown via importAgent.error */
     }
   }
 
@@ -67,6 +85,37 @@ export function Agents() {
             {register.isPending ? t('agents.registering') : t('agents.register')}
           </Button>
           {err ? <ErrorView error={err} /> : null}
+        </div>
+      </Card>
+
+      <Card className="p-6 border-dashed">
+        <div className="text-center mb-4">
+          <h2 className="text-lg font-semibold">Importar agente existente <span className="text-xs font-normal text-muted-foreground">(temporal)</span></h2>
+          <p className="text-xs text-muted-foreground mt-1">Pegá los datos de un agente que ya tenés en otra instancia. Se valida llamando a /api/v1/balance con la apiKey antes de guardarlo localmente.</p>
+        </div>
+
+        <div className="mx-auto max-w-xl space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Nombre</label>
+            <Input value={impName} onChange={(e) => setImpName(e.target.value)} placeholder="my-agent" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Agent ID (UUID)</label>
+            <Input value={impId} onChange={(e) => setImpId(e.target.value)} placeholder="11111111-1111-4111-8111-111111111111" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">API key</label>
+            <Input value={impKey} onChange={(e) => setImpKey(e.target.value)} placeholder="sk_..." />
+          </div>
+          <Button
+            className="w-full"
+            variant="secondary"
+            onClick={() => { void onImport() }}
+            disabled={importAgent.isPending || !impName.trim() || !impId.trim() || !impKey.trim()}
+          >
+            {importAgent.isPending ? 'Importando…' : 'Importar agente'}
+          </Button>
+          {importAgent.error ? <ErrorView error={importAgent.error} /> : null}
         </div>
       </Card>
 

@@ -24,6 +24,15 @@ export function useAgents() {
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   })
 
+  const importAgent = useMutation({
+    mutationFn: async (params: { name: string; id: string; apiKey: string; color: string }) => {
+      const res = await container.useCases.importAgent(params)
+      if (!res.ok) throw res.error
+      return res.value
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  })
+
   const remove = useMutation({
     mutationFn: async (id: AgentId) => container.useCases.removeAgentLocal(id),
     onSuccess: (_, id) => {
@@ -32,5 +41,5 @@ export function useAgents() {
     },
   })
 
-  return { listQuery, register, remove }
+  return { listQuery, register, importAgent, remove }
 }
