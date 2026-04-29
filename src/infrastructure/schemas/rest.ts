@@ -97,6 +97,7 @@ export type ToolCall = z.infer<typeof ToolCallSchema>
 export const ChatMessageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant', 'tool']),
   content: z.string().nullable().optional(),
+  reasoning: z.string().nullable().optional(),
   name: z.string().optional(),
   tool_calls: z.array(ToolCallSchema).optional(),
   tool_call_id: z.string().optional(),
@@ -119,6 +120,11 @@ export const ChatCompletionRequestSchema = z.object({
   stream: z.boolean().optional(),
   tools: z.array(ToolDefSchema).optional(),
   tool_choice: z.union([z.enum(['auto', 'none', 'required']), z.object({ type: z.literal('function'), function: z.object({ name: z.string() }) })]).optional(),
+  reasoning: z.object({
+    effort: z.enum(['low', 'medium', 'high']).optional(),
+    max_tokens: z.number().int().positive().optional(),
+  }).optional(),
+  include_reasoning: z.boolean().optional(),
 })
 export type ChatCompletionRequest = z.infer<typeof ChatCompletionRequestSchema>
 

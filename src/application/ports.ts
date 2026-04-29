@@ -19,6 +19,7 @@ export type ChatResponseMeta = Readonly<{
   costCents?: number
   tokensInput?: number
   tokensOutput?: number
+  reasoningTokens?: number
   balanceRemainingCents?: number
   requestId?: string
 }>
@@ -30,7 +31,8 @@ export type ChatResponseWithMeta = Readonly<{
 
 export type ChatStreamChunk =
   | { readonly kind: 'delta'; readonly text: string }
-  | { readonly kind: 'done'; readonly meta: ChatResponseMeta; readonly fullText: string }
+  | { readonly kind: 'reasoning_delta'; readonly text: string }
+  | { readonly kind: 'done'; readonly meta: ChatResponseMeta; readonly fullText: string; readonly fullReasoning?: string }
 
 export interface RestApiPort {
   healthz(): Promise<Result<HealthzResponse, RestError>>
