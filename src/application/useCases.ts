@@ -35,7 +35,6 @@ export type Deps = Readonly<{
 export type UseCases = Readonly<{
   healthCheck(): Promise<Result<HealthzResponse, RestError>>
   registerAgent(req: RegisterAgentRequest, color: string): Promise<Result<Agent, RestError>>
-  importAgent(args: Readonly<{ name: string; id: string; apiKey: string; color: string }>): Promise<Result<Agent, RestError>>
   fetchBalance(agent: AgentId, key: ApiKey): Promise<Result<BalanceResponse, RestError>>
   fetchModels(agent: AgentId, key: ApiKey, search?: string): Promise<Result<ModelsResponse, RestError>>
   generateWallet(agent: AgentId, key: ApiKey, req: GenerateWalletRequest): Promise<Result<GenerateWalletResponse, RestError>>
@@ -91,21 +90,6 @@ export function makeUseCases(deps: Deps): UseCases {
         name: res.value.name,
         apiKey: ApiKey(res.value.apiKey),
         createdAt: new Date(res.value.createdAt),
-        color,
-      }
-      await deps.agents.add(agent)
-      return Ok(agent)
-    },
-
-    async importAgent({ name, id, apiKey, color }) {
-      const key = ApiKey(apiKey)
-      const balance = await deps.rest.getBalance(key)
-      if (!balance.ok) return balance
-      const agent: Agent = {
-        id: AgentId(id),
-        name,
-        apiKey: key,
-        createdAt: deps.now(),
         color,
       }
       await deps.agents.add(agent)
