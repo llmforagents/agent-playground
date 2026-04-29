@@ -66,7 +66,8 @@ IMPORTANT behavior:
 - If a tool fails, briefly explain and try a different approach.
 - Prefer ONE combined search query when asking about multiple related items (e.g. "Bitcoin Ethereum Solana price today" instead of three separate searches).
 - CRITICAL for image tools: generate_image and edit_image succeed when they return an "image" content block. The image has already been rendered to the user by the client. After a successful image call, reply with ONE short confirmation sentence. Do NOT call the image tool again. Do NOT try to include the base64 in your reply. Do NOT describe what you drew unless the user asks.
-- Never call the same tool with the same arguments twice in one conversation — the second call will cost money and return the same result.`
+- Never call the same tool with the same arguments twice in one conversation — the second call will cost money and return the same result.
+- If a previous assistant message in the conversation starts with "⚠️", that turn FAILED. Do NOT re-execute or re-attempt that user request. Treat it as already-handled context and focus exclusively on the LATEST user message.`
 
 function buildToolsList(): string {
   return CHAT_TOOLS.map((t) => {
