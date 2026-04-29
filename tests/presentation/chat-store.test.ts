@@ -29,21 +29,21 @@ describe('useChatStore', () => {
   })
 
   it('setChat stores a chat for one agent without affecting others', () => {
-    useChatStore.getState().setChat(A, { entries: [sampleEntry], model: 'm', toolsOn: false })
+    useChatStore.getState().setChat(A, { entries: [sampleEntry], model: 'm', toolsOn: false, effort: 'off' })
     expect(useChatStore.getState().byAgent[A]?.entries).toEqual([sampleEntry])
     expect(useChatStore.getState().byAgent[B]).toBeUndefined()
   })
 
   it('clearChat removes only the targeted agent bucket', () => {
-    useChatStore.getState().setChat(A, { entries: [sampleEntry], model: 'm', toolsOn: true })
-    useChatStore.getState().setChat(B, { entries: [sampleEntry], model: 'm', toolsOn: true })
+    useChatStore.getState().setChat(A, { entries: [sampleEntry], model: 'm', toolsOn: true, effort: 'off' })
+    useChatStore.getState().setChat(B, { entries: [sampleEntry], model: 'm', toolsOn: true, effort: 'off' })
     useChatStore.getState().clearChat(A)
     expect(useChatStore.getState().byAgent[A]).toBeUndefined()
     expect(useChatStore.getState().byAgent[B]).toBeDefined()
   })
 
   it('persists chats to localStorage under llm4agents-chats', () => {
-    useChatStore.getState().setChat(A, { entries: [sampleEntry], model: 'm', toolsOn: true })
+    useChatStore.getState().setChat(A, { entries: [sampleEntry], model: 'm', toolsOn: true, effort: 'off' })
     const raw = localStorage.getItem('llm4agents-chats')
     expect(raw).not.toBeNull()
     const parsed = JSON.parse(raw!)
@@ -64,7 +64,7 @@ describe('useChatStore', () => {
     })
 
     expect(() => {
-      useChatStore.getState().setChat(A, { entries: [sampleEntry], model: 'm', toolsOn: true })
+      useChatStore.getState().setChat(A, { entries: [sampleEntry], model: 'm', toolsOn: true, effort: 'off' })
     }).not.toThrow()
     // In-memory state is updated even if persistence failed.
     expect(useChatStore.getState().byAgent[A]?.entries).toEqual([sampleEntry])
@@ -72,16 +72,33 @@ describe('useChatStore', () => {
     expect(toast.error).toHaveBeenCalledTimes(1)
 
     // Second failing save: dedup — toast does NOT fire a second time.
-    useChatStore.getState().setChat(B, { entries: [sampleEntry], model: 'm', toolsOn: false })
+    useChatStore.getState().setChat(B, { entries: [sampleEntry], model: 'm', toolsOn: false, effort: 'off' })
     expect(toast.error).toHaveBeenCalledTimes(1)
 
     // Recover: a successful save resets the dedup guard. Next failure should toast again.
     throwOnPersist = false
-    useChatStore.getState().setChat(A, { entries: [], model: 'm', toolsOn: true })
+    useChatStore.getState().setChat(A, { entries: [], model: 'm', toolsOn: true, effort: 'off' })
     throwOnPersist = true
-    useChatStore.getState().setChat(B, { entries: [sampleEntry], model: 'm', toolsOn: true })
+    useChatStore.getState().setChat(B, { entries: [sampleEntry], model: 'm', toolsOn: true, effort: 'off' })
     expect(toast.error).toHaveBeenCalledTimes(2)
 
     spy.mockRestore()
+  })
+
+  it('defaults effort to "off" in DEFAULT_CHAT', () => {
+    expect(DEFAULT_CHAT.effort).toBe('off')
+  })
+
+  it('persists effort across the store and respects setChat overrides', () => {
+    useChatStore.getState().setChat(A, { entries: [], model: 'm', toolsOn: true, effort: 'high' })
+    expect(useChatStore.getState().byAgent[A]?.effort).toBe('high')
+  })
+
+  it('serializes effort to localStorage', () => {
+    useChatStore.getState().setChat(A, { entries: [], model: 'm', toolsOn: true, effort: 'medium' })
+    const raw = localStorage.getItem('llm4agents-chats')
+    expect(raw).not.toBeNull()
+    const parsed = JSON.parse(raw!)
+    expect(parsed.state.byAgent[A].effort).toBe('medium')
   })
 })

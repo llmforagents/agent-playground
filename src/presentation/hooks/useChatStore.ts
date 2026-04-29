@@ -7,17 +7,20 @@ import { useAppStore } from './useAppStore'
 import { DEFAULT_MODEL } from '@/domain/defaults'
 import type { ConversationEntry } from '@/domain/chat'
 import type { AgentId } from '@/domain/branded'
+import type { Effort } from '@/domain/reasoning'
 
 export type ChatPersisted = Readonly<{
   entries: readonly ConversationEntry[]
   model: string
   toolsOn: boolean
+  effort: Effort
 }>
 
 export const DEFAULT_CHAT: ChatPersisted = {
   entries: [],
   model: DEFAULT_MODEL,
   toolsOn: true,
+  effort: 'off',
 }
 
 type ChatStoreState = {
