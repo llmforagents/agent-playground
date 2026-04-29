@@ -33,7 +33,8 @@ export function Agents() {
   const onCreate = async (): Promise<void> => {
     if (!name.trim()) return
     try {
-      await register.mutateAsync({ name: name.trim(), color: pickColor(name) })
+      const created = await register.mutateAsync({ name: name.trim(), color: pickColor(name) })
+      if (!active) setActive(created.id)
       toast.success(t('agents.registered'), { description: name.trim() })
       setName('')
     } catch {
@@ -88,7 +89,6 @@ export function Agents() {
                 key={a.id}
                 agent={a}
                 isActive={active === a.id}
-                onActivate={() => setActive(a.id)}
                 onDelete={() => remove.mutate(a.id)}
               />
             ))}
@@ -102,12 +102,10 @@ export function Agents() {
 function AgentCard({
   agent,
   isActive,
-  onActivate,
   onDelete,
 }: {
   agent: Agent
   isActive: boolean
-  onActivate: () => void
   onDelete: () => void
 }): React.JSX.Element {
   const t = useT()
@@ -154,11 +152,6 @@ function AgentCard({
         <CopyButton text={agent.apiKey} label={t('agents.copyKey')} size="sm" variant="ghost" />
         <CopyButton text={agent.id} label={t('agents.copyId')} size="sm" variant="ghost" />
         <div className="flex-1" />
-        {isActive ? null : (
-          <Button size="sm" variant="secondary" onClick={onActivate}>
-            {t('agents.activate')}
-          </Button>
-        )}
         <Button
           size="sm"
           onClick={handleDelete}

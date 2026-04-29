@@ -5,9 +5,11 @@ import { MainnetBanner } from './MainnetBanner'
 import { ThemeEffect } from './ThemeEffect'
 import { Toaster } from '@/presentation/components/ui/sonner'
 import { Sheet, SheetContent, SheetTitle } from '@/presentation/components/ui/sheet'
+import { useSyncActiveAgent } from '@/presentation/hooks/useSyncActiveAgent'
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  useSyncActiveAgent()
 
   return (
     <div className="h-screen flex flex-col">

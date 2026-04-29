@@ -97,7 +97,6 @@ const EN = {
   'agents.hideKey': 'Hide key',
   'agents.copyKey': 'Copy key',
   'agents.copyId': 'Copy ID',
-  'agents.activate': 'Activate',
   'agents.active': 'Active',
   'agents.deleteConfirm': 'Click to confirm',
 
@@ -519,7 +518,6 @@ const ES: Record<MessageKey, string> = {
   'agents.hideKey': 'Ocultar key',
   'agents.copyKey': 'Copiar key',
   'agents.copyId': 'Copiar ID',
-  'agents.activate': 'Activar',
   'agents.active': 'Activo',
   'agents.deleteConfirm': 'Click para confirmar',
 
