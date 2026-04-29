@@ -9,6 +9,7 @@ import {
   ClaimResponseSchema,
   type RegisterAgentRequest, type GenerateWalletRequest,
   type ChatCompletionRequest, type ClaimRequest,
+  type ChatCompletionResponse,
 } from '@/infrastructure/schemas/rest'
 import { classifyHttpError } from './classifyError'
 import { parseSseStream } from '@/infrastructure/stream/sseParser'
@@ -68,7 +69,12 @@ export class RestApiClient implements RestApiPort {
     if (!parsed.success) {
       return Err({ kind: 'validation', issues: zodIssuesToZodLike(parsed.error.issues) })
     }
-    return Ok({ data: parsed.data, meta: extractMeta(response.headers) })
+    const headerMeta = extractMeta(response.headers)
+    const reasoningTokens = extractReasoningTokens(parsed.data)
+    const meta: ChatResponseMeta = reasoningTokens !== undefined
+      ? { ...headerMeta, reasoningTokens }
+      : headerMeta
+    return Ok({ data: parsed.data, meta })
   }
 
   async *chatCompletionStream(
@@ -89,21 +95,38 @@ export class RestApiClient implements RestApiPort {
       return
     }
     let full = ''
+    let fullReasoning = ''
     for await (const ev of parseSseStream(res.body)) {
       if (ev.data === '[DONE]') {
-        yield { kind: 'done', fullText: full, meta: extractMeta(res.headers) }
+        yield {
+          kind: 'done',
+          fullText: full,
+          meta: extractMeta(res.headers),
+          ...(fullReasoning ? { fullReasoning } : {}),
+        }
         return
       }
       try {
-        const chunk = JSON.parse(ev.data) as { choices?: { delta?: { content?: string } }[] }
-        const delta = chunk.choices?.[0]?.delta?.content ?? ''
-        if (delta) {
-          full += delta
-          yield { kind: 'delta', text: delta }
+        const chunk = JSON.parse(ev.data) as { choices?: { delta?: { content?: string; reasoning?: string } }[] }
+        const delta = chunk.choices?.[0]?.delta
+        const contentDelta = delta?.content ?? ''
+        const reasoningDelta = delta?.reasoning ?? ''
+        if (reasoningDelta) {
+          fullReasoning += reasoningDelta
+          yield { kind: 'reasoning_delta', text: reasoningDelta }
+        }
+        if (contentDelta) {
+          full += contentDelta
+          yield { kind: 'delta', text: contentDelta }
         }
       } catch { /* ignore malformed chunks */ }
     }
-    yield { kind: 'done', fullText: full, meta: extractMeta(res.headers) }
+    yield {
+      kind: 'done',
+      fullText: full,
+      meta: extractMeta(res.headers),
+      ...(fullReasoning ? { fullReasoning } : {}),
+    }
   }
 
   async claimPlaygroundCredit(req: ClaimRequest) {
@@ -196,4 +219,10 @@ function extractMeta(headers: Headers): ChatResponseMeta {
   if (balStr !== null) meta.balanceRemainingCents = Number(balStr)
   if (reqId !== undefined) meta.requestId = reqId
   return meta
+}
+
+function extractReasoningTokens(data: ChatCompletionResponse): number | undefined {
+  const usage = data.usage as { completion_tokens_details?: { reasoning_tokens?: number } } | undefined
+  const n = usage?.completion_tokens_details?.reasoning_tokens
+  return typeof n === 'number' && n >= 0 ? n : undefined
 }
