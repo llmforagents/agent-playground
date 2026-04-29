@@ -45,7 +45,11 @@ export function useAgenticChat() {
           mode = ev.mode
           setState({ status: 'running', iteration, mode, steps })
         } else if (ev.kind === 'assistant_text') {
-          steps = [...steps, { kind: 'assistant_text', text: ev.text }]
+          steps = [...steps, {
+            kind: 'assistant_text',
+            text: ev.text,
+            ...(ev.reasoning ? { reasoning: ev.reasoning } : {}),
+          }]
           setState({ status: 'running', iteration, mode, steps })
         } else if (ev.kind === 'mode_fallback') {
           steps = [...steps, { kind: 'mode_fallback', from: ev.from, to: ev.to, reason: ev.reason }]

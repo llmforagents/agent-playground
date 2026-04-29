@@ -16,7 +16,7 @@ export type AgenticAbortReason = 'tool_failed' | 'tool_cap_reached'
 
 export type AgenticEvent =
   | { readonly kind: 'thinking'; readonly iteration: number; readonly mode: DispatchMode }
-  | { readonly kind: 'assistant_text'; readonly text: string }
+  | { readonly kind: 'assistant_text'; readonly text: string; readonly reasoning?: string }
   | { readonly kind: 'tool_call'; readonly callId: string; readonly toolName: string; readonly args: unknown }
   | { readonly kind: 'tool_result'; readonly callId: string; readonly toolName: string; readonly ok: boolean; readonly summary: string; readonly raw: unknown }
   | { readonly kind: 'final'; readonly text: string; readonly meta: ChatResponseMeta }
@@ -153,8 +153,8 @@ export type RunAgenticDeps = Readonly<{
 }>
 
 type IterationStep =
-  | { readonly kind: 'tool_call'; readonly callId: string; readonly name: string; readonly args: unknown }
-  | { readonly kind: 'final'; readonly text: string }
+  | { readonly kind: 'tool_call'; readonly callId: string; readonly name: string; readonly args: unknown; readonly reasoning?: string }
+  | { readonly kind: 'final'; readonly text: string; readonly reasoning?: string }
   | { readonly kind: 'error'; readonly error: RestError; readonly providerMightNotSupportTools: boolean }
 
 function looksLikeUnsupportedToolsError(e: RestError): boolean {
@@ -206,6 +206,7 @@ async function runIteration(
   }
   const msg = choice.message
   const assistantText = msg.content ?? ''
+  const assistantReasoning = typeof msg.reasoning === 'string' && msg.reasoning.length > 0 ? msg.reasoning : undefined
   // eslint-disable-next-line no-console
   console.debug('[agentic] ← chat.completion OK', { dt, finishReason: choice.finish_reason, nToolCalls: msg.tool_calls?.length ?? 0, textLen: assistantText.length, meta })
 
@@ -215,18 +216,18 @@ async function runIteration(
       const tc = toolCalls[0]!
       let args: unknown
       try { args = JSON.parse(tc.function.arguments) } catch { args = {} }
-      return { step: { kind: 'tool_call', callId: tc.id, name: tc.function.name, args }, meta }
+      return { step: { kind: 'tool_call', callId: tc.id, name: tc.function.name, args, ...(assistantReasoning ? { reasoning: assistantReasoning } : {}) }, meta }
     }
-    return { step: { kind: 'final', text: assistantText }, meta }
+    return { step: { kind: 'final', text: assistantText, ...(assistantReasoning ? { reasoning: assistantReasoning } : {}) }, meta }
   }
 
   // prompt mode
   const parsed = parsePromptResponse(assistantText)
   if (parsed.kind === 'tool_call') {
     const callId = `prompt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    return { step: { kind: 'tool_call', callId, name: parsed.name, args: parsed.args }, meta }
+    return { step: { kind: 'tool_call', callId, name: parsed.name, args: parsed.args, ...(assistantReasoning ? { reasoning: assistantReasoning } : {}) }, meta }
   }
-  return { step: { kind: 'final', text: parsed.text }, meta }
+  return { step: { kind: 'final', text: parsed.text, ...(assistantReasoning ? { reasoning: assistantReasoning } : {}) }, meta }
 }
 
 export async function* runAgenticChat(
@@ -271,11 +272,18 @@ export async function* runAgenticChat(
     }
 
     if (step.kind === 'final') {
+      if (step.reasoning) {
+        yield { kind: 'assistant_text', text: '', reasoning: step.reasoning }
+      }
       yield { kind: 'final', text: step.text, meta: lastMeta }
       return
     }
 
     // step.kind === 'tool_call'
+    // Surface reasoning before the tool fires, so the UI can render the thinking inline.
+    if (step.reasoning) {
+      yield { kind: 'assistant_text', text: '', reasoning: step.reasoning }
+    }
     yield { kind: 'tool_call', callId: step.callId, toolName: step.name, args: step.args }
 
     const def = findChatTool(step.name)

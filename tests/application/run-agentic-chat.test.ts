@@ -240,4 +240,31 @@ describe('runAgenticChat cost guards', () => {
     expect(chatCalls).toBe(1)
     expect(events.find((e) => e.kind === 'aborted')).toBeDefined()
   })
+
+  it('propagates message.reasoning into the assistant_text event', async () => {
+    const rest: RestApiPort = {
+      ...chatWith([]),
+      chatCompletion: async () => Ok({
+        data: {
+          id: 'id', object: 'chat.completion', created: 0, model: 'openai/o3',
+          choices: [{
+            index: 0,
+            message: { role: 'assistant' as const, content: 'Final answer.', reasoning: 'Step 1: think. Step 2: conclude.' },
+          }],
+        },
+        meta: { costCents: 1, reasoningTokens: 50 },
+      }),
+    }
+    const events = await collect(runAgenticChat(
+      { rest, mcp: { callTool: async () => Ok({ content: [{ type: 'text' as const, text: 'unused' }] }) }, key: KEY, agent: AGENT },
+      { model: 'openai/o3', messages: [{ role: 'user', content: 'hi' }], mode: 'native' },
+    ))
+    const assistantTextEv = events.find((e) => e.kind === 'assistant_text')
+    expect(assistantTextEv).toBeDefined()
+    if (assistantTextEv?.kind !== 'assistant_text') throw new Error('shape')
+    expect(assistantTextEv.text).toBe('')
+    expect(assistantTextEv.reasoning).toBe('Step 1: think. Step 2: conclude.')
+    const finalEv = events.find((e) => e.kind === 'final')
+    expect(finalEv?.kind === 'final' && finalEv.text).toBe('Final answer.')
+  })
 })
