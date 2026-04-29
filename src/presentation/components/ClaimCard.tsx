@@ -25,7 +25,7 @@ export function ClaimCard({ alreadyFunded }: Props): React.JSX.Element | null {
   const [turnstileError, setTurnstileError] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
 
-  if (!container.claim || !agent) return null
+  if (!container.claim || !agent || alreadyFunded) return null
 
   const claim = container.claim
 
@@ -64,12 +64,7 @@ export function ClaimCard({ alreadyFunded }: Props): React.JSX.Element | null {
             <h2 className="text-base font-semibold">{t('claim.title')}</h2>
             <p className="text-xs text-muted-foreground mt-1 max-w-xl">{t('claim.subtitle')}</p>
           </div>
-          <Button
-            size="sm"
-            onClick={() => setDialogOpen(true)}
-            disabled={alreadyFunded}
-            title={alreadyFunded ? '' : undefined}
-          >
+          <Button size="sm" onClick={() => setDialogOpen(true)}>
             {t('claim.cta')}
           </Button>
         </div>
