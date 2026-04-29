@@ -222,12 +222,16 @@ export function Chat() {
             </button>
             <ToolsViewer />
             <EffortSelector model={model} value={effort} onChange={setEffort} />
-            <CostBadge meta={doneMeta} />
             <Button size="sm" variant="ghost" onClick={clear} disabled={entries.length === 0 || busy}>
               {t('common.clear')}
             </Button>
           </div>
         </div>
+        {doneMeta ? (
+          <div className="mt-2 pt-2 border-t border-border/50 flex justify-end">
+            <CostBadge meta={doneMeta} />
+          </div>
+        ) : null}
       </Card>
 
       <Card className="flex-1 min-h-0 overflow-hidden flex flex-col relative">
