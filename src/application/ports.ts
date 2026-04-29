@@ -6,6 +6,7 @@ import type {
   BalanceResponse, GenerateWalletRequest, GenerateWalletResponse,
   ModelsResponse, ChatCompletionRequest, ChatCompletionResponse,
   TransactionsResponse, TxSendRequest, TxSendResponse,
+  ClaimRequest, ClaimResponse,
 } from '@/infrastructure/schemas/rest'
 import type { McpToolResult } from '@/infrastructure/schemas/mcp'
 import type { McpToolName } from '@/domain/scraper'
@@ -45,6 +46,7 @@ export interface RestApiPort {
     type?: 'deposit' | 'usage' | 'refund'; limit?: number; offset?: number
   }>): Promise<Result<TransactionsResponse, RestError>>
   sendTx(key: ApiKey, req: TxSendRequest): Promise<Result<TxSendResponse, RestError>>
+  claimPlaygroundCredit(req: ClaimRequest): Promise<Result<ClaimResponse, RestError>>
 }
 
 export interface McpPort {

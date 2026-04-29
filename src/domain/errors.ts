@@ -3,6 +3,16 @@ export type ZodLikeIssue = Readonly<{
   message: string
 }>
 
+export type ClaimErrorKind =
+  | 'validation_error'
+  | 'turnstile_failed'
+  | 'github_oauth_failed'
+  | 'agent_not_found'
+  | 'agent_inactive'
+  | 'already_claimed'
+  | 'provider_error'
+  | 'rate_limited'
+
 export type RestError =
   | { readonly kind: 'network' }
   | { readonly kind: 'timeout'; readonly endpoint: string }
@@ -10,6 +20,7 @@ export type RestError =
   | { readonly kind: 'insufficient_balance' }
   | { readonly kind: 'rate_limited'; readonly retryAfterMs: number }
   | { readonly kind: 'validation'; readonly issues: readonly ZodLikeIssue[] }
+  | { readonly kind: 'claim_failed'; readonly code: ClaimErrorKind; readonly message: string; readonly requestId?: string; readonly retryAfterSeconds?: number }
   | { readonly kind: 'upstream_error'; readonly status: number; readonly body: unknown }
   | { readonly kind: 'unknown'; readonly message: string; readonly raw: unknown }
 
@@ -28,6 +39,7 @@ export function describeError(e: AppError): string {
     case 'insufficient_balance': return 'Insufficient balance to make this call'
     case 'rate_limited': return `Rate limited — retry in ${Math.ceil(e.retryAfterMs / 1000)}s`
     case 'validation': return `Validation failed: ${e.issues.length} issue(s)`
+    case 'claim_failed': return e.message
     case 'upstream_error': return `Upstream error ${e.status}`
     case 'jsonrpc_error': return `MCP error ${e.code}: ${e.message}`
     case 'invalid_params': return `Invalid params: ${e.details}`

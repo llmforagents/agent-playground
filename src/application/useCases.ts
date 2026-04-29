@@ -16,6 +16,7 @@ import type {
   ChatCompletionRequest, TransactionsResponse,
   GenerateWalletRequest, GenerateWalletResponse,
   RegisterAgentRequest, TxSendRequest, TxSendResponse,
+  ClaimRequest, ClaimResponse,
 } from '@/infrastructure/schemas/rest'
 import type { McpToolResult } from '@/infrastructure/schemas/mcp'
 import { withHistory } from './withHistory'
@@ -43,6 +44,7 @@ export type UseCases = Readonly<{
   ): AsyncGenerator<ChatStreamChunk, void, void>
   listTransactions(agent: AgentId, key: ApiKey, params: Readonly<{ type?: 'deposit' | 'usage' | 'refund'; limit?: number; offset?: number }>): Promise<Result<TransactionsResponse, RestError>>
   sendSponsoredTransaction(agent: AgentId, key: ApiKey, req: TxSendRequest): Promise<Result<TxSendResponse, RestError>>
+  claimPlaygroundCredit(agent: AgentId, req: ClaimRequest): Promise<Result<ClaimResponse, RestError>>
   callScraperTool(agent: AgentId, key: ApiKey, tool: McpToolName, params: unknown, signal?: AbortSignal): Promise<Result<McpToolResult, McpError>>
   openSession(agent: AgentId, key: ApiKey, proxyTier: 'none' | 'datacenter' | 'residential', initialUrl?: string): Promise<Result<SessionId, McpError>>
   closeSession(agent: AgentId, key: ApiKey, sessionId: SessionId): Promise<Result<void, McpError>>
@@ -157,6 +159,10 @@ export function makeUseCases(deps: Deps): UseCases {
 
     async sendSponsoredTransaction(agent, key, req) {
       return track(agent, 'rest', 'POST /v1/tx/send', req, () => deps.rest.sendTx(key, req))
+    },
+
+    async claimPlaygroundCredit(agent, req) {
+      return track(agent, 'rest', 'POST /api/v1/playground/claim', { agentUuid: req.agentUuid }, () => deps.rest.claimPlaygroundCredit(req))
     },
 
     async callScraperTool(agent, key, tool, params, signal) {

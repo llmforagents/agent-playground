@@ -27,6 +27,12 @@ function fakes() {
       amount: '0.5',
       chargedCents: 1,
     })),
+    claimPlaygroundCredit: vi.fn(async () => Ok({
+      claimed: true as const,
+      creditedCents: 50,
+      githubLogin: 'octocat',
+      balanceCents: 50,
+    })),
   }
   const mcp: McpPort = { callTool: vi.fn(async () => Ok({ content: [{ type: 'text' as const, text: 'x' }] })) }
   const agents: AgentRepo = { list: vi.fn(async () => []), add: vi.fn(), rename: vi.fn(), remove: vi.fn(), get: vi.fn(async () => undefined) }

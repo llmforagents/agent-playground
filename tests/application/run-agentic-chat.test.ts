@@ -39,6 +39,7 @@ function chatWith(messages: readonly { content?: string; tool_calls?: { id: stri
     chatCompletionStream: async function* () {},
     listTransactions: async () => Err({ kind: 'network' }) as Result<never, RestError>,
     sendTx: async () => Err({ kind: 'network' }) as Result<never, RestError>,
+    claimPlaygroundCredit: async () => Err({ kind: 'network' }) as Result<never, RestError>,
   }
 }
 

@@ -24,6 +24,8 @@ export function Providers({ children }: { children: ReactNode }) {
     const env = loadEnv({
       VITE_API_BASE: import.meta.env['VITE_API_BASE'] ?? '/proxy/api',
       VITE_MCP_BASE: import.meta.env['VITE_MCP_BASE'] ?? '/proxy/mcp',
+      VITE_GITHUB_CLIENT_ID: import.meta.env['VITE_GITHUB_CLIENT_ID'],
+      VITE_TURNSTILE_SITE_KEY: import.meta.env['VITE_TURNSTILE_SITE_KEY'],
     })
     return composeApp(env)
   }, [])

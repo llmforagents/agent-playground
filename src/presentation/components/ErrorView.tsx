@@ -24,6 +24,7 @@ function humanKind(e: AppError): string {
     case 'insufficient_balance': return 'Insufficient balance'
     case 'rate_limited': return 'Rate limited'
     case 'validation': return 'Validation failed'
+    case 'claim_failed': return 'Claim failed'
     case 'upstream_error': return 'Upstream error'
     case 'jsonrpc_error': return 'MCP JSON-RPC error'
     case 'invalid_params': return 'Invalid params'

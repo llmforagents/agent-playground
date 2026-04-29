@@ -188,6 +188,33 @@ export const ErrorResponseSchema = z.object({
   }).or(z.string()),
 }).loose()
 
+export const ClaimRequestSchema = z.object({
+  agentUuid: z.string().uuid(),
+  turnstileToken: z.string().min(10).max(2048),
+  githubCode: z.string().min(10).max(1024),
+})
+export type ClaimRequest = z.infer<typeof ClaimRequestSchema>
+
+export const ClaimResponseSchema = z.object({
+  claimed: z.literal(true),
+  creditedCents: z.number().int().nonnegative(),
+  githubLogin: z.string().min(1),
+  balanceCents: z.number().int().nonnegative(),
+}).loose()
+export type ClaimResponse = z.infer<typeof ClaimResponseSchema>
+
+export const CLAIM_ERROR_CODES = [
+  'validation_error',
+  'turnstile_failed',
+  'github_oauth_failed',
+  'agent_not_found',
+  'agent_inactive',
+  'already_claimed',
+  'provider_error',
+  'rate_limited',
+] as const
+export type ClaimErrorCode = (typeof CLAIM_ERROR_CODES)[number]
+
 export const TX_SEND_CHAINS = ['polygon'] as const
 export type TxSendChain = (typeof TX_SEND_CHAINS)[number]
 

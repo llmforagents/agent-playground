@@ -15,6 +15,7 @@ import { Search } from '@/presentation/routes/Search'
 import { Images } from '@/presentation/routes/Images'
 import { SendTx } from '@/presentation/routes/SendTx'
 import { Guide } from '@/presentation/routes/Guide'
+import { OAuthCallback } from '@/presentation/routes/OAuthCallback'
 
 export function App() {
   return (
@@ -34,6 +35,7 @@ export function App() {
             <Route path="/images" element={<Images />} />
             <Route path="/tx" element={<SendTx />} />
             <Route path="/guide" element={<Guide />} />
+            <Route path="/oauth/github/callback" element={<OAuthCallback />} />
             <Route path="/health" element={<Navigate to="/settings" replace />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />

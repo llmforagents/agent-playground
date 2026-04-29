@@ -5,6 +5,7 @@ import { Button } from '@/presentation/components/ui/button'
 import { Card } from '@/presentation/components/ui/card'
 import { ErrorView } from '@/presentation/components/ErrorView'
 import { CopyButton } from '@/presentation/components/CopyButton'
+import { ClaimCard } from '@/presentation/components/ClaimCard'
 import { useAppContainer } from '@/presentation/hooks/useAppContainer'
 import { useActiveAgent } from '@/presentation/hooks/useActiveAgent'
 import { useBalance } from '@/presentation/hooks/useBalance'
@@ -94,8 +95,14 @@ export function Wallet() {
   const err = gen.error
   const list = wallets.listQuery.data ?? []
 
+  const balanceCents = balance.data?.availableUsdCents ?? 0
+  const totalDeposited = balance.data ? Number(balance.data.totalDepositedUsd) : 0
+  const alreadyFunded = totalDeposited > 0 || balanceCents > 50
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
+      <ClaimCard alreadyFunded={alreadyFunded} />
+
       <Card className="p-6 flex flex-col items-center text-center gap-3 bg-gradient-to-br from-primary/10 to-transparent border-primary/20">
         <div className="text-base sm:text-lg font-bold text-foreground">{t('wallet.availableBalance')}</div>
         <div className="text-4xl sm:text-5xl font-bold tabular-nums break-all">

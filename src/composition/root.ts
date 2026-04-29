@@ -7,10 +7,11 @@ import { DexieSessionRepo } from '@/infrastructure/persistence/SessionRepo'
 import { DexieWalletRepo } from '@/infrastructure/persistence/WalletRepo'
 import { makeUseCases, type UseCases } from '@/application/useCases'
 import { safeRandomUUID } from '@/lib/uuid'
-import type { AppEnv } from './env'
+import type { AppEnv, ClaimConfig } from './env'
 
 export type AppContainer = Readonly<{
   useCases: UseCases
+  claim?: ClaimConfig
 }>
 
 export function composeApp(env: AppEnv): AppContainer {
@@ -31,5 +32,5 @@ export function composeApp(env: AppEnv): AppContainer {
     now: () => new Date(),
     newRequestId: () => safeRandomUUID(),
   })
-  return { useCases }
+  return env.claim ? { useCases, claim: env.claim } : { useCases }
 }
