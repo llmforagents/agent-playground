@@ -8,9 +8,9 @@ import { coerceToAppError } from '@/domain/errors'
 
 export type ChatStreamState =
   | { readonly status: 'idle' }
-  | { readonly status: 'streaming'; readonly partial: string }
-  | { readonly status: 'done'; readonly fullText: string; readonly meta: ChatResponseMeta }
-  | { readonly status: 'error'; readonly partial: string; readonly error: AppError }
+  | { readonly status: 'streaming'; readonly partial: string; readonly partialReasoning: string }
+  | { readonly status: 'done'; readonly fullText: string; readonly fullReasoning: string; readonly meta: ChatResponseMeta }
+  | { readonly status: 'error'; readonly partial: string; readonly partialReasoning: string; readonly error: AppError }
 
 export function useChatStream() {
   const container = useAppContainer()
@@ -23,19 +23,28 @@ export function useChatStream() {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
-    setState({ status: 'streaming', partial: '' })
+    setState({ status: 'streaming', partial: '', partialReasoning: '' })
     let partial = ''
+    let partialReasoning = ''
     try {
       for await (const chunk of container.useCases.streamChatCompletion(agent.id, agent.apiKey, req, controller.signal)) {
         if (chunk.kind === 'delta') {
           partial += chunk.text
-          setState({ status: 'streaming', partial })
+          setState({ status: 'streaming', partial, partialReasoning })
+        } else if (chunk.kind === 'reasoning_delta') {
+          partialReasoning += chunk.text
+          setState({ status: 'streaming', partial, partialReasoning })
         } else if (chunk.kind === 'done') {
-          setState({ status: 'done', fullText: chunk.fullText, meta: chunk.meta })
+          setState({
+            status: 'done',
+            fullText: chunk.fullText,
+            fullReasoning: chunk.fullReasoning ?? '',
+            meta: chunk.meta,
+          })
         }
       }
     } catch (e) {
-      setState({ status: 'error', partial, error: coerceToAppError(e) })
+      setState({ status: 'error', partial, partialReasoning, error: coerceToAppError(e) })
     }
   }, [container, agent])
 
