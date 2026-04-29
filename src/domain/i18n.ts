@@ -215,6 +215,22 @@ const EN = {
   'chat.abortedCap': 'Stopped at the 3-tool-call safety cap while running "{tool}". No further model calls were made. Rephrase or disable tools and try again.',
   'chat.persistFull': 'Could not save chat — local storage is full. Use Clear to free space.',
 
+  // Reasoning
+  'chat.reasoning.label': '💭 Reasoning',
+  'chat.reasoning.elapsed': '({sec}s)',
+  'chat.reasoning.empty': '(no reasoning)',
+  'chat.reasoning.thinking': 'Thinking…',
+  'chat.reasoning.notSupported': 'This model does not support reasoning',
+  'chat.effort.label': 'Effort',
+  'chat.effort.off': 'Off',
+  'chat.effort.low': 'Low',
+  'chat.effort.medium': 'Medium',
+  'chat.effort.high': 'High',
+  'chat.effort.tooltip': 'Reasoning effort. Higher = more thinking tokens.',
+  'chat.effort.tooltipBoolean': 'This family treats levels as on/off.',
+  'chat.effort.tooltipTokenBudget': 'Maps to a max_tokens budget: low=500, medium=2000, high=8000.',
+  'chat.cost.reasoningTokens': '({n} thinking)',
+
   // Models
   'models.title': 'Models',
   'models.search': 'Search by slug, name or provider…',
@@ -607,6 +623,22 @@ const ES: Record<MessageKey, string> = {
   'chat.abortedToolFailed': 'Detenido porque la tool "{tool}" falló ({detail}). No se hicieron más llamadas al modelo, así que no se cobraron tokens extra. Reformulá y probá de nuevo.',
   'chat.abortedCap': 'Detenido al límite de seguridad de 3 tool-calls ejecutando "{tool}". No se hicieron más llamadas al modelo. Reformulá o desactivá las tools y probá de nuevo.',
   'chat.persistFull': 'No se pudo guardar el chat — el almacenamiento local está lleno. Usá Clear para liberar espacio.',
+
+  // Reasoning
+  'chat.reasoning.label': '💭 Razonamiento',
+  'chat.reasoning.elapsed': '({sec}s)',
+  'chat.reasoning.empty': '(sin razonamiento)',
+  'chat.reasoning.thinking': 'Pensando…',
+  'chat.reasoning.notSupported': 'Este modelo no soporta razonamiento',
+  'chat.effort.label': 'Effort',
+  'chat.effort.off': 'Off',
+  'chat.effort.low': 'Bajo',
+  'chat.effort.medium': 'Medio',
+  'chat.effort.high': 'Alto',
+  'chat.effort.tooltip': 'Esfuerzo de razonamiento. Más alto = más tokens de pensamiento.',
+  'chat.effort.tooltipBoolean': 'Esta familia trata los niveles como on/off.',
+  'chat.effort.tooltipTokenBudget': 'Se mapea a un presupuesto de max_tokens: bajo=500, medio=2000, alto=8000.',
+  'chat.cost.reasoningTokens': '({n} pensando)',
 
   // Models
   'models.title': 'Modelos',
