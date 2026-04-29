@@ -73,6 +73,13 @@ export function useAgenticChat() {
           )
           setState({ status: 'running', iteration, mode, steps })
         } else if (ev.kind === 'final') {
+          // If the model returned nothing actionable (no text, no tool calls, no reasoning),
+          // surface an error instead of silently completing — otherwise the UI shows no
+          // response and the user thinks the chat is broken.
+          if (!ev.text && steps.length === 0) {
+            setState({ status: 'error', error: { kind: 'unknown', message: t('chat.emptyResponse'), raw: null }, steps })
+            return
+          }
           setState({ status: 'done', text: ev.text, meta: ev.meta, steps, mode })
           return
         } else if (ev.kind === 'max_iterations') {
