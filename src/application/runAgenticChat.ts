@@ -143,6 +143,8 @@ export type RunAgenticParams = Readonly<{
   maxIterations?: number
   signal?: AbortSignal
   mode?: DispatchMode
+  reasoning?: { effort?: 'low' | 'medium' | 'high'; max_tokens?: number }
+  include_reasoning?: boolean
 }>
 
 export type RunAgenticDeps = Readonly<{
@@ -172,7 +174,7 @@ function looksLikeUnsupportedToolsError(e: RestError): boolean {
 
 async function runIteration(
   deps: RunAgenticDeps,
-  params: { model: string; signal?: AbortSignal },
+  params: { model: string; signal?: AbortSignal; reasoning?: { effort?: 'low' | 'medium' | 'high'; max_tokens?: number }; include_reasoning?: boolean },
   mode: DispatchMode,
   userConversation: readonly ChatMessageFull[],
   toolHistory: readonly ToolHistoryEntry[],
@@ -186,6 +188,8 @@ async function runIteration(
     messages: messages as ChatCompletionRequest['messages'],
     stream: false,
     ...(mode === 'native' ? { tools: CHAT_TOOLS.map((t) => t.openai), tool_choice: 'auto' as const } : {}),
+    ...(params.reasoning ? { reasoning: params.reasoning } : {}),
+    ...(params.include_reasoning ? { include_reasoning: params.include_reasoning } : {}),
   }
   const t0 = Date.now()
   // eslint-disable-next-line no-console
@@ -251,9 +255,12 @@ export async function* runAgenticChat(
 
     yield { kind: 'thinking', iteration: i, mode }
 
-    const itParams: { model: string; signal?: AbortSignal } = params.signal
-      ? { model: params.model, signal: params.signal }
-      : { model: params.model }
+    const itParams: { model: string; signal?: AbortSignal; reasoning?: { effort?: 'low' | 'medium' | 'high'; max_tokens?: number }; include_reasoning?: boolean } = {
+      model: params.model,
+      ...(params.signal ? { signal: params.signal } : {}),
+      ...(params.reasoning ? { reasoning: params.reasoning } : {}),
+      ...(params.include_reasoning ? { include_reasoning: params.include_reasoning } : {}),
+    }
     const { step, meta } = await runIteration(deps, itParams, mode, userConversation, toolHistory)
     lastMeta = meta
 

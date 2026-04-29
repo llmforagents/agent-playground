@@ -22,7 +22,12 @@ export function useAgenticChat() {
   const [state, setState] = useState<AgenticChatState>({ status: 'idle' })
   const abortRef = useRef<AbortController | null>(null)
 
-  const start = useCallback(async (params: { model: string; messages: readonly ChatMessage[] }) => {
+  const start = useCallback(async (params: {
+    model: string
+    messages: readonly ChatMessage[]
+    reasoning?: { effort?: 'low' | 'medium' | 'high'; max_tokens?: number }
+    include_reasoning?: boolean
+  }) => {
     if (!agent) return
     abortRef.current?.abort()
     const controller = new AbortController()
@@ -37,6 +42,8 @@ export function useAgenticChat() {
         model: params.model,
         messages: params.messages,
         signal: controller.signal,
+        ...(params.reasoning ? { reasoning: params.reasoning } : {}),
+        ...(params.include_reasoning ? { include_reasoning: params.include_reasoning } : {}),
       })
       for await (const ev of gen) {
         if (controller.signal.aborted) break

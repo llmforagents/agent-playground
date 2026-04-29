@@ -8,6 +8,8 @@ import { ErrorView } from '@/presentation/components/ErrorView'
 import { CostBadge } from '@/presentation/components/CostBadge'
 import { ModelPicker } from '@/presentation/components/ModelPicker'
 import { ToolsViewer } from '@/presentation/components/ToolsViewer'
+import { EffortSelector } from '@/presentation/components/EffortSelector'
+import { ReasoningBlock } from '@/presentation/components/ReasoningBlock'
 import { useModels } from '@/presentation/hooks/useModels'
 import { useBalance } from '@/presentation/hooks/useBalance'
 import { useChatStream } from '@/presentation/hooks/useChatStream'
@@ -17,6 +19,8 @@ import { useT } from '@/presentation/hooks/useT'
 import type { ChatMessage, AgenticStep, ConversationEntry } from '@/domain/chat'
 import { useChatStore, DEFAULT_CHAT } from '@/presentation/hooks/useChatStore'
 import { DEFAULT_MODEL } from '@/domain/defaults'
+import { buildReasoningPayload, type Effort } from '@/domain/reasoning'
+import type { ChatCompletionRequest } from '@/infrastructure/schemas/rest'
 
 type Role = ChatMessage['role']
 
@@ -50,6 +54,13 @@ export function Chat() {
     const current = useChatStore.getState().byAgent[agent.id] ?? DEFAULT_CHAT
     const next = typeof updater === 'function' ? updater(current.toolsOn) : updater
     setChatBucket(agent.id, { ...current, toolsOn: next })
+  }, [agent, setChatBucket])
+
+  const effort = chat.effort
+  const setEffort = useCallback((next: Effort): void => {
+    if (!agent) return
+    const current = useChatStore.getState().byAgent[agent.id] ?? DEFAULT_CHAT
+    setChatBucket(agent.id, { ...current, effort: next })
   }, [agent, setChatBucket])
 
   const [input, setInput] = useState('')
@@ -88,9 +99,17 @@ export function Chat() {
 
   useEffect(() => {
     if (stream.state.status === 'done') {
-      const fullText = stream.state.fullText
+      const { fullText, fullReasoning } = stream.state
       if (fullText) {
-        setEntries((m) => [...m, { kind: 'msg', role: 'assistant', content: fullText }])
+        setEntries((m) => [
+          ...m,
+          {
+            kind: 'msg',
+            role: 'assistant',
+            content: fullText,
+            ...(fullReasoning ? { reasoning: fullReasoning } : {}),
+          },
+        ])
       }
     }
   }, [stream.state, setEntries])
@@ -141,10 +160,24 @@ export function Chat() {
     setEntries(nextEntries)
     setInput('')
     const nextMessages: readonly ChatMessage[] = [...chatMessages, { role: 'user', content: trimmed }]
+    const reasoningPayload = buildReasoningPayload(model, effort)
+    const agenticReq: Parameters<typeof agentic.start>[0] = {
+      model,
+      messages: nextMessages,
+      ...(reasoningPayload['reasoning'] ? { reasoning: reasoningPayload['reasoning'] as { effort?: 'low' | 'medium' | 'high'; max_tokens?: number } } : {}),
+      ...(reasoningPayload['include_reasoning'] ? { include_reasoning: true as const } : {}),
+    }
+    const streamReq: ChatCompletionRequest = {
+      model,
+      messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
+      stream: true,
+      ...(reasoningPayload['reasoning'] ? { reasoning: reasoningPayload['reasoning'] as ChatCompletionRequest['reasoning'] } : {}),
+      ...(reasoningPayload['include_reasoning'] ? { include_reasoning: true as const } : {}),
+    }
     if (toolsOn) {
-      void agentic.start({ model, messages: nextMessages })
+      void agentic.start(agenticReq)
     } else {
-      void stream.start({ model, messages: nextMessages.map((m) => ({ role: m.role, content: m.content })), stream: true })
+      void stream.start(streamReq)
     }
   }
 
@@ -188,6 +221,7 @@ export function Chat() {
               {toolsOn ? t('chat.toolsOn') : t('chat.toolsOff')}
             </button>
             <ToolsViewer />
+            <EffortSelector model={model} value={effort} onChange={setEffort} />
             <CostBadge meta={doneMeta} />
             <Button size="sm" variant="ghost" onClick={clear} disabled={entries.length === 0 || busy}>
               {t('common.clear')}
@@ -216,12 +250,12 @@ export function Chat() {
           ) : null}
 
           {entries.map((e, i) => e.kind === 'msg'
-            ? <Bubble key={i} role={e.role} content={e.content} t={t} />
+            ? <Bubble key={i} role={e.role} content={e.content} {...(e.reasoning ? { reasoning: e.reasoning } : {})} t={t} />
             : <AgenticBlock key={i} steps={e.steps} finalText={e.finalText} t={t} />
           )}
 
           {stream.state.status === 'streaming' ? (
-            <Bubble role="assistant" content={stream.state.partial} streaming t={t} />
+            <Bubble role="assistant" content={stream.state.partial} reasoning={stream.state.partialReasoning} streaming t={t} />
           ) : null}
 
           {agentic.state.status === 'running' ? (
@@ -278,7 +312,7 @@ export function Chat() {
 
 type TFn = ReturnType<typeof useT>
 
-function Bubble({ role, content, streaming = false, t }: { role: Role; content: string; streaming?: boolean; t: TFn }): React.JSX.Element {
+function Bubble({ role, content, reasoning, streaming = false, t }: { role: Role; content: string; reasoning?: string; streaming?: boolean; t: TFn }): React.JSX.Element {
   const isUser = role === 'user'
   const isAssistant = role === 'assistant'
   const roleLabel = role === 'user' ? t('chat.user') : role === 'assistant' ? t('chat.assistant') : role
@@ -299,6 +333,9 @@ function Bubble({ role, content, streaming = false, t }: { role: Role; content: 
         <div className="text-[10px] text-muted-foreground mb-1">
           {roleLabel}{streaming ? ` · ${t('chat.streaming')}` : ''}
         </div>
+        {isAssistant && (reasoning || streaming) ? (
+          <ReasoningBlock reasoning={reasoning ?? ''} isStreaming={streaming} />
+        ) : null}
         <div
           className={`rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words max-w-[85%] ${
             isUser
@@ -357,10 +394,15 @@ function AgenticBlock({
               </div>
             )
           }
-          if (s.text) {
+          if (s.kind === 'assistant_text') {
             return (
-              <div key={i} className="rounded-xl px-3 py-2 text-sm bg-muted/40 text-foreground whitespace-pre-wrap break-words max-w-[85%]">
-                {s.text}
+              <div key={i}>
+                {s.reasoning ? <ReasoningBlock reasoning={s.reasoning} isStreaming={false} /> : null}
+                {s.text ? (
+                  <div className="rounded-xl px-3 py-2 text-sm bg-muted/40 text-foreground whitespace-pre-wrap break-words max-w-[85%]">
+                    {s.text}
+                  </div>
+                ) : null}
               </div>
             )
           }

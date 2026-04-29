@@ -54,7 +54,14 @@ export type UseCases = Readonly<{
   removeWalletLocal(agent: AgentId, chain: 'solana' | 'polygon', token: 'USDT' | 'USDC'): Promise<void>
   runAgenticChat(
     agent: AgentId, key: ApiKey,
-    params: Readonly<{ model: string; messages: readonly ChatMessage[]; maxIterations?: number; signal?: AbortSignal }>,
+    params: Readonly<{
+      model: string
+      messages: readonly ChatMessage[]
+      maxIterations?: number
+      signal?: AbortSignal
+      reasoning?: { effort?: 'low' | 'medium' | 'high'; max_tokens?: number }
+      include_reasoning?: boolean
+    }>,
   ): AsyncGenerator<AgenticEvent, void, void>
 }>
 
@@ -220,6 +227,8 @@ export function makeUseCases(deps: Deps): UseCases {
         messages: params.messages,
         ...(params.maxIterations !== undefined ? { maxIterations: params.maxIterations } : {}),
         ...(params.signal !== undefined ? { signal: params.signal } : {}),
+        ...(params.reasoning !== undefined ? { reasoning: params.reasoning } : {}),
+        ...(params.include_reasoning !== undefined ? { include_reasoning: params.include_reasoning } : {}),
       }
       yield* runAgenticChat(
         { rest: deps.rest, mcp: deps.mcp, agent, key },
