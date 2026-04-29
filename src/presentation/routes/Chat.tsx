@@ -157,8 +157,12 @@ export function Chat() {
   const chatMessages = useMemo((): readonly ChatMessage[] => {
     const out: ChatMessage[] = []
     for (const e of entries) {
-      if (e.kind === 'msg') out.push({ role: e.role, content: e.content })
-      else if (e.finalText) out.push({ role: 'assistant', content: e.finalText })
+      if (e.kind === 'msg') {
+        out.push({ role: e.role, content: e.content })
+      } else {
+        const text = e.finalText || summarizeAgenticEntry(e.steps)
+        if (text) out.push({ role: 'assistant', content: text })
+      }
     }
     return out
   }, [entries])
@@ -539,4 +543,22 @@ function ToolImagePreview({ raw }: { raw: unknown }): React.JSX.Element | null {
 
 function safeStringify(v: unknown): string {
   try { return JSON.stringify(v, null, 2) } catch { return String(v) }
+}
+
+// When an agentic turn produced no text (e.g. image tools short-circuit and
+// return only an image), synthesize a placeholder so the next user turn doesn't
+// appear right after the previous user turn — otherwise the model loses track
+// of what already happened and re-runs the prior request.
+function summarizeAgenticEntry(steps: readonly AgenticStep[]): string {
+  const parts: string[] = []
+  for (const s of steps) {
+    if (s.kind === 'assistant_text' && s.text) {
+      parts.push(s.text)
+    } else if (s.kind === 'tool' && s.status === 'ok') {
+      let argsStr: string
+      try { argsStr = JSON.stringify(s.args) } catch { argsStr = String(s.args) }
+      parts.push(`[Called ${s.toolName}(${argsStr}) — result was rendered to the user]`)
+    }
+  }
+  return parts.join('\n')
 }
