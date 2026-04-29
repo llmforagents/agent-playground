@@ -202,6 +202,11 @@ export function Chat() {
   return (
     <div className="mx-auto max-w-4xl h-[calc(100vh-9rem)] flex flex-col gap-3">
       <Card className="p-3 md:p-4 flex-shrink-0 overflow-visible relative z-30 space-y-3">
+        {doneMeta ? (
+          <div className="flex justify-end pb-2 border-b border-border/50">
+            <CostBadge meta={doneMeta} />
+          </div>
+        ) : null}
         <ModelPicker
           models={models.data?.models ?? []}
           value={model}
@@ -229,11 +234,6 @@ export function Chat() {
             {t('common.clear')}
           </Button>
         </div>
-        {doneMeta ? (
-          <div className="pt-2 border-t border-border/50 flex justify-end">
-            <CostBadge meta={doneMeta} />
-          </div>
-        ) : null}
       </Card>
 
       <Card className="flex-1 min-h-0 overflow-hidden flex flex-col relative">
