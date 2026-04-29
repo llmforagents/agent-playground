@@ -71,6 +71,8 @@ export function Chat() {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const lastStreamDoneRef = useRef<unknown>(null)
   const lastAgenticDoneRef = useRef<unknown>(null)
+  const lastStreamErrorRef = useRef<unknown>(null)
+  const lastAgenticErrorRef = useRef<unknown>(null)
   const [isPinned, setIsPinned] = useState(true)
   const [hasNew, setHasNew] = useState(false)
 
@@ -125,6 +127,31 @@ export function Chat() {
     // Skip empty agentic results (no text + no steps) — nothing to render.
     if (!text && steps.length === 0) return
     setEntries((m) => [...m, { kind: 'agentic', steps, finalText: text }])
+  }, [agentic.state, setEntries])
+
+  // Persist errors as assistant messages so the conversation stays consistent
+  // (every user turn has an assistant follow-up). Otherwise the model in the
+  // next turn sees [user, user] without a response and can mis-route the reply.
+  useEffect(() => {
+    if (stream.state.status !== 'error') return
+    if (lastStreamErrorRef.current === stream.state) return
+    lastStreamErrorRef.current = stream.state
+    const errMsg = stream.state.error.kind === 'unknown' && stream.state.error.message
+      ? stream.state.error.message
+      : 'Error: la respuesta no se pudo completar.'
+    setEntries((m) => [...m, { kind: 'msg', role: 'assistant', content: `⚠️ ${errMsg}` }])
+  }, [stream.state, setEntries])
+
+  useEffect(() => {
+    if (agentic.state.status !== 'error') return
+    if (lastAgenticErrorRef.current === agentic.state) return
+    lastAgenticErrorRef.current = agentic.state
+    const errMsg = agentic.state.error.kind === 'unknown' && agentic.state.error.message
+      ? agentic.state.error.message
+      : 'Error: la respuesta no se pudo completar.'
+    // Persist as agentic entry so any partial steps (tool calls that ran before the
+    // error) are kept visible. finalText carries the error message.
+    setEntries((m) => [...m, { kind: 'agentic', steps: agentic.state.status === 'error' ? agentic.state.steps : [], finalText: `⚠️ ${errMsg}` }])
   }, [agentic.state, setEntries])
 
   const chatMessages = useMemo((): readonly ChatMessage[] => {
