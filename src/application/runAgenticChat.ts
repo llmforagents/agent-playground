@@ -1,11 +1,14 @@
-import { LLM4AgentsError, type McpToolResult } from '@llmforagents/sdk'
 import type { AgentId, ApiKey } from '@/domain/branded'
 import type { ChatMessage, DispatchMode } from '@/domain/chat'
-import type { AppError } from '@/domain/errors'
-import { coerceToAppError } from '@/domain/errors'
-import type { ChatResponseMeta } from '@/application/ports'
-import { createSdkClient, type SdkConfig } from '@/infrastructure/sdk/sdkClient'
-import { translateSdkError } from '@/infrastructure/sdk/translateSdkError'
+import type { AppError, RestError } from '@/domain/errors'
+import type { ChatResponseMeta, McpPort, RestApiPort } from '@/application/ports'
+import type {
+  ChatCompletionRequest,
+  ChatMessageFull,
+  ToolCall,
+} from '@/infrastructure/schemas/rest'
+import type { McpToolResult } from '@/infrastructure/schemas/mcp'
+import { CHAT_TOOLS, findChatTool } from '@/domain/chatTools'
 
 export type { DispatchMode }
 
@@ -22,7 +25,32 @@ export type AgenticEvent =
   | { readonly kind: 'aborted'; readonly reason: AgenticAbortReason; readonly toolName: string; readonly detail: string }
   | { readonly kind: 'error'; readonly error: AppError }
 
-const DEFAULT_MAX_TOOL_ROUNDS = 3
+const DEFAULT_MAX_ITERATIONS = 5
+const MAX_TOOL_CALLS_PER_RUN = 3
+const MAX_TOOL_RESULT_CHARS = 4000
+
+/** Slug prefixes for model families known to support OpenAI-style tool calling through the proxy. */
+const NATIVE_TOOL_PREFIXES: readonly string[] = [
+  'openai/',
+  'anthropic/',
+  'google/gemini-',
+  'google/gemma',
+  'meta-llama/llama-3',
+  'meta-llama/llama-4',
+  'mistralai/',
+  'qwen/qwen',
+  'deepseek/',
+  'x-ai/grok',
+  'cohere/',
+  'nvidia/',
+  'perplexity/',
+  'microsoft/',
+]
+
+export function detectDispatchMode(modelSlug: string): DispatchMode {
+  const s = modelSlug.toLowerCase()
+  return NATIVE_TOOL_PREFIXES.some((p) => s.startsWith(p)) ? 'native' : 'prompt'
+}
 
 const BASE_SYSTEM_PROMPT = `You are a helpful assistant with access to real-time tools:
 - google_search, google_news, google_maps: for current events, facts, sports scores, prices, news, places, or anything time-sensitive.
@@ -41,213 +69,386 @@ IMPORTANT behavior:
 - Never call the same tool with the same arguments twice in one conversation — the second call will cost money and return the same result.
 - If a previous assistant message in the conversation starts with "⚠️", that turn FAILED. Do NOT re-execute or re-attempt that user request. Treat it as already-handled context and focus exclusively on the LATEST user message.`
 
+function buildToolsList(): string {
+  return CHAT_TOOLS.map((t) => {
+    const fn = t.openai.function
+    const required = fn.parameters.required.length > 0 ? ` (required: ${fn.parameters.required.join(', ')})` : ''
+    return `- ${fn.name}: ${fn.description}${required}`
+  }).join('\n')
+}
+
+const PROMPT_MODE_INSTRUCTIONS = `=== Available tools ===
+${buildToolsList()}
+
+=== How to use tools ===
+When you need to use a tool, respond with ONLY a JSON object on a single line in this exact shape, nothing else:
+{"tool_call": {"name": "<tool_name>", "arguments": {<arguments>}}}
+
+Example: {"tool_call": {"name": "google_search", "arguments": {"q": "current bitcoin price"}}}
+
+When you have enough info to answer the user, respond with plain text (no JSON wrapper). Do not mix tool calls with text — pick one.`
+
+type ToolHistoryEntry = Readonly<{
+  toolName: string
+  args: unknown
+  ok: boolean
+  resultText: string
+}>
+
+function buildSystemPrompt(mode: DispatchMode, history: readonly ToolHistoryEntry[]): string {
+  const base = mode === 'native'
+    ? BASE_SYSTEM_PROMPT
+    : `${BASE_SYSTEM_PROMPT}\n\n${PROMPT_MODE_INSTRUCTIONS}`
+  if (history.length === 0) return base
+  const log = history.map((h, i) => {
+    const argsStr = safeStringify(h.args)
+    const truncated = h.resultText.length > MAX_TOOL_RESULT_CHARS
+      ? `${h.resultText.slice(0, MAX_TOOL_RESULT_CHARS)}\n…[truncated]`
+      : h.resultText
+    const status = h.ok ? 'RESULT' : 'ERROR'
+    return `[${i + 1}] ${h.toolName}(${argsStr}) → ${status}:\n${truncated}`
+  }).join('\n\n')
+  return `${base}\n\n=== Tool call history (already executed, do NOT repeat these exact calls) ===\n${log}\n\nUse the information above to answer the user's question. Call additional tools only if you need more data.`
+}
+
+function safeStringify(v: unknown): string {
+  try { return JSON.stringify(v) } catch { return String(v) }
+}
+
+/** Parse a prompt-mode assistant response. Returns a tool call if the response is JSON matching the expected shape, else treats it as final text. */
+function parsePromptResponse(text: string): { kind: 'tool_call'; name: string; args: unknown } | { kind: 'final'; text: string } {
+  const trimmed = text.trim()
+  // Find JSON object at the start of the response (allow surrounding markdown fences)
+  const cleaned = trimmed
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim()
+  if (!cleaned.startsWith('{')) return { kind: 'final', text }
+  try {
+    const parsed = JSON.parse(cleaned) as { tool_call?: { name?: unknown; arguments?: unknown } }
+    if (
+      parsed
+      && typeof parsed === 'object'
+      && parsed.tool_call
+      && typeof parsed.tool_call.name === 'string'
+      && parsed.tool_call.name
+    ) {
+      return { kind: 'tool_call', name: parsed.tool_call.name, args: parsed.tool_call.arguments ?? {} }
+    }
+  } catch { /* fall through */ }
+  return { kind: 'final', text }
+}
+
 export type RunAgenticParams = Readonly<{
   model: string
   messages: readonly ChatMessage[]
   maxIterations?: number
   signal?: AbortSignal
+  mode?: DispatchMode
   reasoning?: { effort?: 'low' | 'medium' | 'high'; max_tokens?: number }
   include_reasoning?: boolean
 }>
 
 export type RunAgenticDeps = Readonly<{
+  rest: RestApiPort
+  mcp: McpPort
   agent: AgentId
   key: ApiKey
-  sdkConfig?: SdkConfig
 }>
 
-type ConversationOptions = Parameters<ReturnType<typeof createSdkClient>['chat']['conversation']>[0]
-type ConversationHistory = NonNullable<ConversationOptions['history']>
+type IterationStep =
+  | { readonly kind: 'tool_call'; readonly callId: string; readonly name: string; readonly args: unknown; readonly reasoning?: string }
+  | { readonly kind: 'final'; readonly text: string; readonly reasoning?: string }
+  | { readonly kind: 'error'; readonly error: RestError; readonly providerMightNotSupportTools: boolean }
+
+function looksLikeUnsupportedToolsError(e: RestError): boolean {
+  if (e.kind !== 'upstream_error') return false
+  const body = typeof e.body === 'string' ? e.body : safeStringify(e.body)
+  const t = body.toLowerCase()
+  return (
+    t.includes('tool_calls') ||
+    t.includes('tool message') ||
+    t.includes('does not support tools') ||
+    t.includes('function calling') ||
+    t.includes('tool calling')
+  ) && (e.status === 400 || e.status === 404 || e.status === 501 || e.status === 502)
+}
+
+async function runIteration(
+  deps: RunAgenticDeps,
+  params: { model: string; signal?: AbortSignal; reasoning?: { effort?: 'low' | 'medium' | 'high'; max_tokens?: number }; include_reasoning?: boolean },
+  mode: DispatchMode,
+  userConversation: readonly ChatMessageFull[],
+  toolHistory: readonly ToolHistoryEntry[],
+): Promise<{ step: IterationStep; meta: ChatResponseMeta }> {
+  const messages: ChatMessageFull[] = [
+    { role: 'system', content: buildSystemPrompt(mode, toolHistory) },
+    ...userConversation,
+  ]
+  const req: ChatCompletionRequest = {
+    model: params.model,
+    messages: messages as ChatCompletionRequest['messages'],
+    stream: false,
+    ...(mode === 'native' ? { tools: CHAT_TOOLS.map((t) => t.openai), tool_choice: 'auto' as const } : {}),
+    ...(params.reasoning ? { reasoning: params.reasoning } : {}),
+    ...(params.include_reasoning ? { include_reasoning: params.include_reasoning } : {}),
+  }
+  const t0 = Date.now()
+  // eslint-disable-next-line no-console
+  console.debug('[agentic] → chat.completion', { model: params.model, mode, nTools: mode === 'native' ? CHAT_TOOLS.length : 0, nMessages: messages.length })
+  const res = await deps.rest.chatCompletion(deps.key, req)
+  const dt = Date.now() - t0
+  if (!res.ok) {
+    // eslint-disable-next-line no-console
+    console.debug('[agentic] ← chat.completion ERROR', { dt, error: res.error })
+    return { step: { kind: 'error', error: res.error, providerMightNotSupportTools: looksLikeUnsupportedToolsError(res.error) }, meta: {} }
+  }
+  const meta = res.value.meta
+  const choice = res.value.data.choices[0]
+  if (!choice) {
+    // eslint-disable-next-line no-console
+    console.debug('[agentic] ← chat.completion NO CHOICES', { dt, raw: res.value.data })
+    return { step: { kind: 'error', error: { kind: 'upstream_error', status: 500, body: 'no choices' }, providerMightNotSupportTools: false }, meta }
+  }
+  const msg = choice.message
+  const assistantText = msg.content ?? ''
+  const assistantReasoning = typeof msg.reasoning === 'string' && msg.reasoning.length > 0 ? msg.reasoning : undefined
+  // eslint-disable-next-line no-console
+  console.debug('[agentic] ← chat.completion OK', { dt, finishReason: choice.finish_reason, nToolCalls: msg.tool_calls?.length ?? 0, textLen: assistantText.length, meta })
+
+  if (mode === 'native') {
+    const toolCalls: readonly ToolCall[] = msg.tool_calls ?? []
+    if (toolCalls.length > 0) {
+      const tc = toolCalls[0]!
+      let args: unknown
+      try { args = JSON.parse(tc.function.arguments) } catch { args = {} }
+      return { step: { kind: 'tool_call', callId: tc.id, name: tc.function.name, args, ...(assistantReasoning ? { reasoning: assistantReasoning } : {}) }, meta }
+    }
+    return { step: { kind: 'final', text: assistantText, ...(assistantReasoning ? { reasoning: assistantReasoning } : {}) }, meta }
+  }
+
+  // prompt mode
+  const parsed = parsePromptResponse(assistantText)
+  if (parsed.kind === 'tool_call') {
+    const callId = `prompt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    return { step: { kind: 'tool_call', callId, name: parsed.name, args: parsed.args, ...(assistantReasoning ? { reasoning: assistantReasoning } : {}) }, meta }
+  }
+  return { step: { kind: 'final', text: parsed.text, ...(assistantReasoning ? { reasoning: assistantReasoning } : {}) }, meta }
+}
 
 export async function* runAgenticChat(
   deps: RunAgenticDeps,
   params: RunAgenticParams,
 ): AsyncGenerator<AgenticEvent, void, void> {
-  const sdk = createSdkClient(deps.key, deps.sdkConfig)
-
-  // The playground passes a flat list ending in the new user message. The SDK
-  // Conversation takes the prior turns as `history` and the latest as the
-  // argument to `stream()`.
-  const userVisible = params.messages.filter((m) => m.role !== 'system')
-  const last = userVisible[userVisible.length - 1]
-  if (!last || last.role !== 'user') {
-    yield { kind: 'error', error: { kind: 'unknown', message: 'Last message must be user', raw: null } }
-    return
-  }
-  const history: ConversationHistory = userVisible.slice(0, -1).map((m) => ({
-    role: m.role,
-    content: m.content,
-  }))
-
-  let currentMode: DispatchMode = 'native'
-  let iteration = 0
-  let bufferedText = ''
-  let bufferedReasoning = ''
+  const maxIterations = params.maxIterations ?? DEFAULT_MAX_ITERATIONS
+  const userConversation: ChatMessageFull[] = params.messages
+    .filter((m) => m.role !== 'system')
+    .map((m) => ({ role: m.role, content: m.content }))
+  const toolHistory: ToolHistoryEntry[] = []
   let lastMeta: ChatResponseMeta = {}
-  let callCounter = 0
-  const inFlight: { id: string; name: string }[] = []
-  let lastToolName = ''
+  let mode: DispatchMode = params.mode ?? detectDispatchMode(params.model)
+  let hasFallenBack = false
 
-  yield { kind: 'thinking', iteration, mode: currentMode }
-
-  const conversationOpts: ConversationOptions = {
-    model: params.model,
-    system: BASE_SYSTEM_PROMPT,
-    tools: sdk.tools,
-    history,
-    maxToolRounds: params.maxIterations ?? DEFAULT_MAX_TOOL_ROUNDS,
-    enablePromptToolFallback: true,
-    onRoundMeta: (m) => {
-      lastMeta = mergeMeta(lastMeta, sdkMetaToChatMeta(m))
-    },
-    ...(params.signal ? { signal: params.signal } : {}),
-  }
-  const conv = sdk.chat.conversation(conversationOpts)
-
-  try {
-    for await (const ev of conv.stream(last.content)) {
-      switch (ev.type) {
-        case 'text':
-          bufferedText += ev.content
-          break
-        case 'reasoning':
-          bufferedReasoning += ev.content
-          break
-        case 'meta':
-          lastMeta = mergeMeta(lastMeta, sdkMetaToChatMeta(ev.meta))
-          break
-        case 'tool_start': {
-          const flushed = takeAssistantText(bufferedText, bufferedReasoning)
-          bufferedText = ''
-          bufferedReasoning = ''
-          if (flushed) yield flushed
-          callCounter += 1
-          const id = `call_${callCounter}`
-          inFlight.push({ id, name: ev.name })
-          lastToolName = ev.name
-          yield { kind: 'tool_call', callId: id, toolName: ev.name, args: ev.args }
-          break
-        }
-        case 'tool_end': {
-          const popped = inFlight.shift() ?? { id: `call_${callCounter}`, name: ev.name }
-          yield {
-            kind: 'tool_result',
-            callId: popped.id,
-            toolName: ev.name,
-            ok: true,
-            summary: describeToolResult(ev.result),
-            raw: ev.result,
-          }
-          iteration += 1
-          yield { kind: 'thinking', iteration, mode: currentMode }
-          break
-        }
-        case 'fallback':
-          currentMode = 'prompt'
-          yield {
-            kind: 'mode_fallback',
-            from: 'native',
-            to: 'prompt',
-            reason: `Model ${ev.model} ignored native tool calls; using prompt-based JSON.`,
-          }
-          break
-        case 'done': {
-          const flushed = takeAssistantText(bufferedText, bufferedReasoning)
-          bufferedText = ''
-          bufferedReasoning = ''
-          if (flushed && flushed.text !== ev.response.content) yield flushed
-          yield { kind: 'final', text: ev.response.content, meta: lastMeta }
-          return
-        }
-      }
-    }
-  } catch (e) {
-    if (e instanceof LLM4AgentsError) {
-      if (e.code === 'tool_loop_limit') {
-        yield { kind: 'max_iterations' }
-        return
-      }
-      if (e.code === 'tool_execution_error' || e.code === 'tool_not_found') {
-        yield {
-          kind: 'aborted',
-          reason: 'tool_failed',
-          toolName: lastToolName || 'unknown',
-          detail: e.message,
-        }
-        return
-      }
-      yield { kind: 'error', error: translateSdkError(e) }
-      return
-    }
-    if (e instanceof DOMException && e.name === 'AbortError') {
+  for (let i = 0; i < maxIterations; i++) {
+    if (params.signal?.aborted) {
       yield { kind: 'error', error: { kind: 'timeout', endpoint: 'agentic' } }
       return
     }
-    yield { kind: 'error', error: coerceToAppError(e) }
+
+    yield { kind: 'thinking', iteration: i, mode }
+
+    const itParams: { model: string; signal?: AbortSignal; reasoning?: { effort?: 'low' | 'medium' | 'high'; max_tokens?: number }; include_reasoning?: boolean } = {
+      model: params.model,
+      ...(params.signal ? { signal: params.signal } : {}),
+      ...(params.reasoning ? { reasoning: params.reasoning } : {}),
+      ...(params.include_reasoning ? { include_reasoning: params.include_reasoning } : {}),
+    }
+    const { step, meta } = await runIteration(deps, itParams, mode, userConversation, toolHistory)
+    lastMeta = meta
+
+    if (step.kind === 'error') {
+      // Auto-fallback: if native mode errored with something that looks like
+      // unsupported tools, retry this iteration in prompt mode.
+      if (mode === 'native' && !hasFallenBack && step.providerMightNotSupportTools) {
+        yield { kind: 'mode_fallback', from: 'native', to: 'prompt', reason: 'Provider rejected native tool calling; falling back to prompt-based JSON.' }
+        mode = 'prompt'
+        hasFallenBack = true
+        i -= 1
+        continue
+      }
+      yield { kind: 'error', error: step.error as RestError }
+      return
+    }
+
+    if (step.kind === 'final') {
+      if (step.reasoning) {
+        yield { kind: 'assistant_text', text: '', reasoning: step.reasoning }
+      }
+      yield { kind: 'final', text: step.text, meta: lastMeta }
+      return
+    }
+
+    // step.kind === 'tool_call'
+    // Surface reasoning before the tool fires, so the UI can render the thinking inline.
+    if (step.reasoning) {
+      yield { kind: 'assistant_text', text: '', reasoning: step.reasoning }
+    }
+    yield { kind: 'tool_call', callId: step.callId, toolName: step.name, args: step.args }
+
+    const def = findChatTool(step.name)
+    if (!def) {
+      // Unknown tool — abort. Calling the LLM again would just cost tokens
+      // without moving closer to a useful answer.
+      const detail = `Unknown tool: ${step.name}`
+      toolHistory.push({ toolName: step.name, args: step.args, ok: false, resultText: detail })
+      yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: false, summary: detail, raw: null }
+      yield { kind: 'aborted', reason: 'tool_failed', toolName: step.name, detail }
+      return
+    }
+
+    // Cost guard 1: refuse to re-invoke the same tool with the same arguments
+    // (success OR failure). The second call would return the same result and
+    // the intermediate chat completion would cost tokens for nothing.
+    const argsKey = safeStringify(step.args)
+    const priorCall = toolHistory.find(
+      (h) => h.toolName === step.name && safeStringify(h.args) === argsKey,
+    )
+    if (priorCall) {
+      const msg = priorCall.ok
+        ? `Already called ${step.name} with the same arguments and it succeeded. The user has already seen that result. Reply to the user now.`
+        : `Already called ${step.name} with the same arguments and it failed: ${priorCall.resultText.slice(0, 200)}. Do NOT retry with the same arguments.`
+      toolHistory.push({ toolName: step.name, args: step.args, ok: priorCall.ok, resultText: msg })
+      yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: priorCall.ok, summary: msg, raw: null }
+      // If this was a prior failure, also abort — the model is looping.
+      if (!priorCall.ok) {
+        yield { kind: 'aborted', reason: 'tool_failed', toolName: step.name, detail: msg }
+        return
+      }
+      continue
+    }
+
+    // Cost guard 2: hard cap on total tool calls per run. Beyond this the
+    // model is fishing and the token cost outweighs any likely result.
+    const actualCallsSoFar = toolHistory.filter((h) => !h.resultText.startsWith('Already called')).length
+    if (actualCallsSoFar >= MAX_TOOL_CALLS_PER_RUN) {
+      const detail = `Tool call cap reached (${MAX_TOOL_CALLS_PER_RUN} per run). Stopping to prevent further charges.`
+      toolHistory.push({ toolName: step.name, args: step.args, ok: false, resultText: detail })
+      yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: false, summary: detail, raw: null }
+      yield { kind: 'aborted', reason: 'tool_cap_reached', toolName: step.name, detail }
+      return
+    }
+
+    const mcpRes = await deps.mcp.callTool(deps.key, def.mcpName, step.args, params.signal)
+    if (!mcpRes.ok) {
+      // Cost guard 3: tool failed. Abort. Do NOT make another chat completion
+      // call — that would cost tokens on the next round with no guarantee of
+      // recovery. The user can re-send if they want another attempt.
+      const errText = `Tool execution failed: ${safeStringify(mcpRes.error)}`
+      const errSummary = mcpErrorSummary(mcpRes.error)
+      toolHistory.push({ toolName: step.name, args: step.args, ok: false, resultText: errText })
+      yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: false, summary: errSummary, raw: mcpRes.error }
+      yield { kind: 'aborted', reason: 'tool_failed', toolName: step.name, detail: errSummary }
+      return
+    }
+
+    const { summary, content } = summarizeResult(mcpRes.value)
+    toolHistory.push({ toolName: step.name, args: step.args, ok: true, resultText: content })
+    yield { kind: 'tool_result', callId: step.callId, toolName: step.name, ok: true, summary, raw: mcpRes.value }
+
+    // Short-circuit for terminal tools: image tools return the final answer
+    // DIRECTLY — a PNG for generate/edit, text for analyze. Skipping the
+    // synthesis round saves a whole chat.completion turn. For analyze_image
+    // we surface the text as the final answer so it reads as the assistant's
+    // reply; for generate/edit the image is already rendered inline and
+    // finalText stays empty.
+    if (def.category === 'image') {
+      const first = mcpRes.value.content[0]
+      const finalText = first?.type === 'text' ? first.text : ''
+      yield { kind: 'final', text: finalText, meta: lastMeta }
+      return
+    }
   }
+
+  // Synthesis fallback: if we exhausted iterations but have tool results in hand,
+  // make ONE final chat completion WITHOUT tools to force the model to summarize
+  // what it learned. Beats showing a "max_iterations" error when we have data.
+  const hasUsefulHistory = toolHistory.some((h) => h.ok && !h.resultText.startsWith('Already called'))
+  if (hasUsefulHistory) {
+    const messages: ChatMessageFull[] = [
+      { role: 'system', content: buildSystemPrompt(mode, toolHistory) + '\n\n=== Final synthesis ===\nRespond NOW using only the tool results above. Do NOT call more tools — they will be ignored. Combine the data into a clear answer for the user.' },
+      ...userConversation,
+    ]
+    const synthReq: ChatCompletionRequest = {
+      model: params.model,
+      messages: messages as ChatCompletionRequest['messages'],
+      stream: false,
+      // Deliberately omit `tools` so the model cannot request more.
+    }
+    const synthRes = await deps.rest.chatCompletion(deps.key, synthReq)
+    if (synthRes.ok) {
+      const choice = synthRes.value.data.choices[0]
+      const text = choice?.message.content ?? ''
+      const reasoning = typeof choice?.message.reasoning === 'string' && choice.message.reasoning.length > 0
+        ? choice.message.reasoning
+        : undefined
+      if (reasoning) {
+        yield { kind: 'assistant_text', text: '', reasoning }
+      }
+      yield { kind: 'final', text, meta: synthRes.value.meta }
+      return
+    }
+  }
+
+  yield { kind: 'max_iterations' }
 }
 
-type AssistantTextEvent = Extract<AgenticEvent, { kind: 'assistant_text' }>
-
-function takeAssistantText(text: string, reasoning: string): AssistantTextEvent | null {
-  if (!text && !reasoning) return null
-  return reasoning
-    ? { kind: 'assistant_text', text, reasoning }
-    : { kind: 'assistant_text', text }
+function mcpErrorSummary(err: unknown): string {
+  if (err && typeof err === 'object' && 'kind' in err) {
+    const e = err as { kind: string; status?: number; message?: string; body?: unknown }
+    switch (e.kind) {
+      case 'network': return 'Network error reaching MCP endpoint'
+      case 'timeout': return 'MCP call timed out'
+      case 'unauthorized': return 'Unauthorized — check API key'
+      case 'rate_limited': return 'Rate limited by MCP — retry in a few seconds'
+      case 'validation': return 'MCP response failed schema validation'
+      case 'upstream_error': {
+        const body = e.body
+        if (typeof body === 'string') return `MCP ${e.status ?? ''}: ${body.slice(0, 120)}`
+        if (body && typeof body === 'object' && 'message' in body) {
+          return `MCP ${e.status ?? ''}: ${String((body as { message: unknown }).message).slice(0, 160)}`
+        }
+        return `MCP error ${e.status ?? ''}`
+      }
+      case 'jsonrpc_error': return `MCP JSON-RPC ${e.message ?? 'error'}`
+      case 'invalid_params': return 'Invalid tool arguments'
+      default: return `MCP error (${e.kind})`
+    }
+  }
+  return 'Tool call failed'
 }
 
-function describeToolResult(result: McpToolResult): string {
+function summarizeResult(result: McpToolResult): { summary: string; content: string } {
   const first = result.content[0]
-  if (!first) return '(empty result)'
+  if (!first) return { summary: '(empty result)', content: JSON.stringify({ empty: true }) }
+
   if (first.type === 'text') {
-    const t = first.text
-    return t.length > 120 ? `${t.slice(0, 120)}…` : t
+    const text = first.text
+    const truncated = text.length > MAX_TOOL_RESULT_CHARS ? `${text.slice(0, MAX_TOOL_RESULT_CHARS)}\n…[truncated]` : text
+    const summary = text.length > 120 ? `${text.slice(0, 120)}…` : text
+    return { summary, content: truncated }
   }
   if (first.type === 'image') {
-    return `Image rendered (${first.mimeType})`
+    const bytes = typeof first.data === 'string' ? first.data.length : 0
+    return {
+      summary: `Image rendered (${first.mimeType})`,
+      content: `SUCCESS: The ${first.mimeType} image has been generated and is already displayed to the user inline (${bytes} base64 chars). Do NOT call this tool again. Reply with one short confirmation sentence to the user (e.g. "Done — here's the image.").`,
+    }
   }
   if (first.type === 'resource') {
-    return `Resource: ${first.mimeType ?? 'unknown'}`
+    return {
+      summary: `Resource: ${first.resource.mimeType ?? 'unknown'}`,
+      content: `SUCCESS: A ${first.resource.mimeType ?? 'binary'} resource was returned and rendered to the user. Do NOT call this tool again. Reply with one short confirmation sentence.`,
+    }
   }
-  return 'Unknown content'
-}
-
-type SdkResponseMeta = Readonly<{
-  costUsdCents?: number | undefined
-  tokensInput?: number | undefined
-  tokensOutput?: number | undefined
-  balanceRemainingCents?: number | undefined
-  requestId?: string | undefined
-}>
-
-function sdkMetaToChatMeta(m: SdkResponseMeta): ChatResponseMeta {
-  const out: { costCents?: number; tokensInput?: number; tokensOutput?: number; balanceRemainingCents?: number; requestId?: string } = {}
-  if (m.costUsdCents !== undefined) out.costCents = m.costUsdCents
-  if (m.tokensInput !== undefined) out.tokensInput = m.tokensInput
-  if (m.tokensOutput !== undefined) out.tokensOutput = m.tokensOutput
-  if (m.balanceRemainingCents !== undefined) out.balanceRemainingCents = m.balanceRemainingCents
-  if (m.requestId !== undefined) out.requestId = m.requestId
-  return out
-}
-
-// Cost-tracking fields accumulate across rounds; balance and requestId follow
-// latest-wins. reasoning_tokens is not surfaced by SDK Conversation — known
-// regression vs the prior in-house loop.
-function mergeMeta(prev: ChatResponseMeta, next: ChatResponseMeta): ChatResponseMeta {
-  const out: { costCents?: number; tokensInput?: number; tokensOutput?: number; balanceRemainingCents?: number; requestId?: string } = {}
-  const sum = (a?: number, b?: number): number | undefined => {
-    if (a === undefined && b === undefined) return undefined
-    return (a ?? 0) + (b ?? 0)
-  }
-  const summedCost = sum(prev.costCents, next.costCents)
-  const summedIn = sum(prev.tokensInput, next.tokensInput)
-  const summedOut = sum(prev.tokensOutput, next.tokensOutput)
-  if (summedCost !== undefined) out.costCents = summedCost
-  if (summedIn !== undefined) out.tokensInput = summedIn
-  if (summedOut !== undefined) out.tokensOutput = summedOut
-  const bal = next.balanceRemainingCents ?? prev.balanceRemainingCents
-  if (bal !== undefined) out.balanceRemainingCents = bal
-  const rid = next.requestId ?? prev.requestId
-  if (rid !== undefined) out.requestId = rid
-  return out
+  return { summary: 'Unknown content', content: JSON.stringify(result) }
 }

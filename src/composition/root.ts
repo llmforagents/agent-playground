@@ -31,7 +31,6 @@ export function composeApp(env: AppEnv): AppContainer {
     wallets,
     now: () => new Date(),
     newRequestId: () => safeRandomUUID(),
-    sdkConfig: { baseUrl: env.apiBase, mcpUrl: env.mcpBase },
   })
   return env.claim ? { useCases, claim: env.claim } : { useCases }
 }
