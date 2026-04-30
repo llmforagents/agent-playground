@@ -10,6 +10,7 @@ import type {
   ChatResponseWithMeta, ChatStreamChunk,
 } from '@/application/ports'
 import { runAgenticChat, type AgenticEvent, type RunAgenticParams } from '@/application/runAgenticChat'
+import type { SdkConfig } from '@/infrastructure/sdk/sdkClient'
 import type { ChatMessage } from '@/domain/chat'
 import type {
   HealthzResponse, BalanceResponse, ModelsResponse,
@@ -30,6 +31,7 @@ export type Deps = Readonly<{
   wallets: WalletRepo
   now: () => Date
   newRequestId: () => string
+  sdkConfig?: SdkConfig
 }>
 
 export type UseCases = Readonly<{
@@ -231,7 +233,11 @@ export function makeUseCases(deps: Deps): UseCases {
         ...(params.include_reasoning !== undefined ? { include_reasoning: params.include_reasoning } : {}),
       }
       yield* runAgenticChat(
-        { rest: deps.rest, mcp: deps.mcp, agent, key },
+        {
+          agent,
+          key,
+          ...(deps.sdkConfig !== undefined ? { sdkConfig: deps.sdkConfig } : {}),
+        },
         runParams,
       )
     },
