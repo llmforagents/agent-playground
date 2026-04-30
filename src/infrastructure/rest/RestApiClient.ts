@@ -9,10 +9,13 @@ import {
   ClaimResponseSchema,
   type RegisterAgentRequest, type GenerateWalletRequest,
   type ChatCompletionRequest, type ClaimRequest,
-  type ChatCompletionResponse,
+  type ChatCompletionResponse, type BalanceResponse, type GenerateWalletResponse,
+  type TransactionsResponse,
 } from '@/infrastructure/schemas/rest'
 import { classifyHttpError } from './classifyError'
-import { parseSseStream } from '@/infrastructure/stream/sseParser'
+import { createSdkClient } from '@/infrastructure/sdk/sdkClient'
+import { callSdk } from '@/infrastructure/sdk/translateSdkError'
+import type { LLM4AgentsClient } from '@llmforagents/sdk'
 import type {
   RestApiPort, ChatResponseWithMeta, ChatResponseMeta, ChatStreamChunk,
 } from '@/application/ports'
@@ -30,6 +33,14 @@ function zodIssuesToZodLike(
   }))
 }
 
+function validate<T>(schema: z.ZodType<T>, raw: unknown): Result<T, RestError> {
+  const parsed = schema.safeParse(raw)
+  if (!parsed.success) {
+    return Err({ kind: 'validation', issues: zodIssuesToZodLike(parsed.error.issues) })
+  }
+  return Ok(parsed.data)
+}
+
 export class RestApiClient implements RestApiPort {
   constructor(private readonly apiBase: string, _mcpBase: string) {}
 
@@ -41,90 +52,83 @@ export class RestApiClient implements RestApiPort {
     return this.postJson('/api/v1/agents/register', req, RegisterAgentResponseSchema)
   }
 
-  async getBalance(key: ApiKey) {
-    return this.getJson('/api/v1/balance', BalanceResponseSchema, key)
+  async getBalance(key: ApiKey): Promise<Result<BalanceResponse, RestError>> {
+    const sdk = createSdkClient(key, { baseUrl: this.apiBase })
+    const r = await callSdk(() => sdk.wallets.balance())
+    if (!r.ok) return r
+    return validate(BalanceResponseSchema, r.value)
   }
 
   async listModels(key: ApiKey, search?: string) {
-    const qs = search ? `?search=${encodeURIComponent(search)}` : ''
-    return this.getJson(`/api/v1/models${qs}`, ModelsResponseSchema, key)
+    const sdk = createSdkClient(key, { baseUrl: this.apiBase })
+    const r = await callSdk(() => sdk.models.list(search ? { search } : undefined))
+    if (!r.ok) return r
+    return validate(ModelsResponseSchema, r.value)
   }
 
-  async generateWallet(key: ApiKey, req: GenerateWalletRequest) {
-    return this.postJson('/api/v1/wallets/generate', req, GenerateWalletResponseSchema, key)
+  async generateWallet(
+    key: ApiKey, req: GenerateWalletRequest,
+  ): Promise<Result<GenerateWalletResponse, RestError>> {
+    const sdk = createSdkClient(key, { baseUrl: this.apiBase })
+    const r = await callSdk(() => sdk.wallets.generate({ chain: req.chain, token: req.token }))
+    if (!r.ok) return r
+    return validate(GenerateWalletResponseSchema, r.value)
   }
 
   async chatCompletion(
     key: ApiKey, req: ChatCompletionRequest,
   ): Promise<Result<ChatResponseWithMeta, RestError>> {
-    const url = `${this.apiBase}/v1/chat/completions`
-    const res = await this.fetchSafe(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-      body: JSON.stringify({ ...req, stream: false }),
-    })
-    if (!res.ok) return res
-    const { response } = res.value
-    const parsed = ChatCompletionResponseSchema.safeParse(await response.json())
+    const sdk = createSdkClient(key, { baseUrl: this.apiBase })
+    let capturedMeta: SdkResponseMeta | undefined
+    const callRes = await callSdk(() =>
+      sdk.chat.completions.create(toSdkNonStreamParams(req), { onMeta: (m) => { capturedMeta = m } })
+    )
+    if (!callRes.ok) return callRes
+    const parsed = ChatCompletionResponseSchema.safeParse(callRes.value)
     if (!parsed.success) {
       return Err({ kind: 'validation', issues: zodIssuesToZodLike(parsed.error.issues) })
     }
-    const headerMeta = extractMeta(response.headers)
     const reasoningTokens = extractReasoningTokens(parsed.data)
-    const meta: ChatResponseMeta = reasoningTokens !== undefined
-      ? { ...headerMeta, reasoningTokens }
-      : headerMeta
-    return Ok({ data: parsed.data, meta })
+    return Ok({ data: parsed.data, meta: metaFromSdk(capturedMeta, reasoningTokens) })
   }
 
   async *chatCompletionStream(
     key: ApiKey, req: ChatCompletionRequest, signal: AbortSignal,
   ): AsyncGenerator<ChatStreamChunk, void, void> {
-    const url = `${this.apiBase}/v1/chat/completions`
-    const res = await fetch(url, {
-      method: 'POST',
-      signal,
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${key}`,
-        accept: 'text/event-stream',
-      },
-      body: JSON.stringify({ ...req, stream: true }),
-    })
-    if (!res.ok || !res.body) {
+    const sdk = createSdkClient(key, { baseUrl: this.apiBase })
+    let capturedMeta: SdkResponseMeta | undefined
+    let stream: Awaited<ReturnType<SdkChatCompletions['create']>> & AsyncIterable<unknown>
+    try {
+      const result = await sdk.chat.completions.create(toSdkStreamParams(req), {
+        signal,
+        onMeta: (m) => { capturedMeta = m },
+      })
+      stream = result as typeof stream
+    } catch {
+      // Match prior behavior: on transport error, terminate silently without
+      // yielding 'done'. The caller's UI handles the absence of completion.
       return
     }
     let full = ''
     let fullReasoning = ''
-    for await (const ev of parseSseStream(res.body)) {
-      if (ev.data === '[DONE]') {
-        yield {
-          kind: 'done',
-          fullText: full,
-          meta: extractMeta(res.headers),
-          ...(fullReasoning ? { fullReasoning } : {}),
-        }
-        return
+    for await (const raw of stream) {
+      const chunk = raw as { choices?: readonly { delta?: { content?: string; reasoning?: string } }[] }
+      const delta = chunk.choices?.[0]?.delta
+      const contentDelta = delta?.content ?? ''
+      const reasoningDelta = delta?.reasoning ?? ''
+      if (reasoningDelta) {
+        fullReasoning += reasoningDelta
+        yield { kind: 'reasoning_delta', text: reasoningDelta }
       }
-      try {
-        const chunk = JSON.parse(ev.data) as { choices?: { delta?: { content?: string; reasoning?: string } }[] }
-        const delta = chunk.choices?.[0]?.delta
-        const contentDelta = delta?.content ?? ''
-        const reasoningDelta = delta?.reasoning ?? ''
-        if (reasoningDelta) {
-          fullReasoning += reasoningDelta
-          yield { kind: 'reasoning_delta', text: reasoningDelta }
-        }
-        if (contentDelta) {
-          full += contentDelta
-          yield { kind: 'delta', text: contentDelta }
-        }
-      } catch { /* ignore malformed chunks */ }
+      if (contentDelta) {
+        full += contentDelta
+        yield { kind: 'delta', text: contentDelta }
+      }
     }
     yield {
       kind: 'done',
       fullText: full,
-      meta: extractMeta(res.headers),
+      meta: metaFromSdk(capturedMeta),
       ...(fullReasoning ? { fullReasoning } : {}),
     }
   }
@@ -135,13 +139,16 @@ export class RestApiClient implements RestApiPort {
 
   async listTransactions(
     key: ApiKey, params: Readonly<{ type?: 'deposit' | 'usage' | 'refund'; limit?: number; offset?: number }>,
-  ) {
-    const qs = new URLSearchParams()
-    if (params.type) qs.set('type', params.type)
-    if (params.limit !== undefined) qs.set('limit', String(params.limit))
-    if (params.offset !== undefined) qs.set('offset', String(params.offset))
-    const suffix = qs.toString() ? `?${qs.toString()}` : ''
-    return this.getJson(`/api/v1/transactions${suffix}`, TransactionsResponseSchema, key)
+  ): Promise<Result<TransactionsResponse, RestError>> {
+    const sdk = createSdkClient(key, { baseUrl: this.apiBase })
+    const filter: Parameters<typeof sdk.wallets.transactions>[0] = {
+      ...(params.type !== undefined ? { type: params.type } : {}),
+      ...(params.limit !== undefined ? { limit: params.limit } : {}),
+      ...(params.offset !== undefined ? { offset: params.offset } : {}),
+    }
+    const r = await callSdk(() => sdk.wallets.transactions(filter))
+    if (!r.ok) return r
+    return validate(TransactionsResponseSchema, r.value)
   }
 
   private async getJson<T>(
@@ -206,19 +213,33 @@ export class RestApiClient implements RestApiPort {
   }
 }
 
-function extractMeta(headers: Headers): ChatResponseMeta {
-  const costStr = headers.get('x-cost-usd-cents')
-  const inStr = headers.get('x-tokens-input')
-  const outStr = headers.get('x-tokens-output')
-  const balStr = headers.get('x-balance-remaining-cents')
-  const reqId = headers.get('x-request-id') ?? undefined
-  const meta: { costCents?: number; tokensInput?: number; tokensOutput?: number; balanceRemainingCents?: number; requestId?: string } = {}
-  if (costStr !== null) meta.costCents = Number(costStr)
-  if (inStr !== null) meta.tokensInput = Number(inStr)
-  if (outStr !== null) meta.tokensOutput = Number(outStr)
-  if (balStr !== null) meta.balanceRemainingCents = Number(balStr)
-  if (reqId !== undefined) meta.requestId = reqId
-  return meta
+type SdkChatCompletions = LLM4AgentsClient['chat']['completions']
+type SdkResponseMeta = NonNullable<Parameters<SdkChatCompletions['create']>[1]>['onMeta'] extends ((m: infer M) => void) | undefined ? M : never
+
+function metaFromSdk(m: SdkResponseMeta | undefined, reasoningTokens?: number): ChatResponseMeta {
+  const out: { costCents?: number; tokensInput?: number; tokensOutput?: number; balanceRemainingCents?: number; requestId?: string; reasoningTokens?: number } = {}
+  if (m?.costUsdCents !== undefined) out.costCents = m.costUsdCents
+  if (m?.tokensInput !== undefined) out.tokensInput = m.tokensInput
+  if (m?.tokensOutput !== undefined) out.tokensOutput = m.tokensOutput
+  if (m?.balanceRemainingCents !== undefined) out.balanceRemainingCents = m.balanceRemainingCents
+  if (m?.requestId !== undefined) out.requestId = m.requestId
+  if (reasoningTokens !== undefined) out.reasoningTokens = reasoningTokens
+  return out
+}
+
+// The SDK types `reasoning?: boolean` but the proxy accepts the OpenRouter
+// object shape `{ effort?: 'low'|'medium'|'high'; max_tokens?: number }` and
+// the SDK passes the field through unchanged. Bypass the type at the boundary
+// rather than narrow the playground's richer schema.
+type SdkNonStreamParams = Parameters<SdkChatCompletions['create']>[0] & { stream?: false }
+type SdkStreamParams = Parameters<SdkChatCompletions['create']>[0] & { stream: true }
+
+function toSdkNonStreamParams(req: ChatCompletionRequest): SdkNonStreamParams {
+  return { ...req, stream: false } as unknown as SdkNonStreamParams
+}
+
+function toSdkStreamParams(req: ChatCompletionRequest): SdkStreamParams {
+  return { ...req, stream: true } as unknown as SdkStreamParams
 }
 
 function extractReasoningTokens(data: ChatCompletionResponse): number | undefined {
