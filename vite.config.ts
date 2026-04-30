@@ -19,9 +19,7 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_API_BASE ?? 'https://api.llm4agents.com',
           changeOrigin: true,
           secure: true,
-          // Strip /proxy/api prefix and any trailing slash on the path (the
-          // SDK uses /api/v1/balance/ while the backend expects /api/v1/balance).
-          rewrite: (p) => p.replace(/^\/proxy\/api/, '').replace(/\/(\?|$)/, '$1'),
+          rewrite: (p) => p.replace(/^\/proxy\/api/, ''),
         },
         '/proxy/mcp': {
           target: env.VITE_MCP_BASE ?? 'https://mcp.llm4agents.com',

@@ -216,25 +216,26 @@ type SdkResponseMeta = Readonly<{
   costUsdCents?: number | undefined
   tokensInput?: number | undefined
   tokensOutput?: number | undefined
+  tokensReasoning?: number | undefined
   balanceRemainingCents?: number | undefined
   requestId?: string | undefined
 }>
 
 function sdkMetaToChatMeta(m: SdkResponseMeta): ChatResponseMeta {
-  const out: { costCents?: number; tokensInput?: number; tokensOutput?: number; balanceRemainingCents?: number; requestId?: string } = {}
+  const out: { costCents?: number; tokensInput?: number; tokensOutput?: number; reasoningTokens?: number; balanceRemainingCents?: number; requestId?: string } = {}
   if (m.costUsdCents !== undefined) out.costCents = m.costUsdCents
   if (m.tokensInput !== undefined) out.tokensInput = m.tokensInput
   if (m.tokensOutput !== undefined) out.tokensOutput = m.tokensOutput
+  if (m.tokensReasoning !== undefined) out.reasoningTokens = m.tokensReasoning
   if (m.balanceRemainingCents !== undefined) out.balanceRemainingCents = m.balanceRemainingCents
   if (m.requestId !== undefined) out.requestId = m.requestId
   return out
 }
 
-// Cost-tracking fields accumulate across rounds; balance and requestId follow
-// latest-wins. reasoning_tokens is not surfaced by SDK Conversation — known
-// regression vs the prior in-house loop.
+// Cost-tracking and reasoning fields accumulate across rounds; balance and
+// requestId follow latest-wins.
 function mergeMeta(prev: ChatResponseMeta, next: ChatResponseMeta): ChatResponseMeta {
-  const out: { costCents?: number; tokensInput?: number; tokensOutput?: number; balanceRemainingCents?: number; requestId?: string } = {}
+  const out: { costCents?: number; tokensInput?: number; tokensOutput?: number; reasoningTokens?: number; balanceRemainingCents?: number; requestId?: string } = {}
   const sum = (a?: number, b?: number): number | undefined => {
     if (a === undefined && b === undefined) return undefined
     return (a ?? 0) + (b ?? 0)
@@ -242,9 +243,11 @@ function mergeMeta(prev: ChatResponseMeta, next: ChatResponseMeta): ChatResponse
   const summedCost = sum(prev.costCents, next.costCents)
   const summedIn = sum(prev.tokensInput, next.tokensInput)
   const summedOut = sum(prev.tokensOutput, next.tokensOutput)
+  const summedReasoning = sum(prev.reasoningTokens, next.reasoningTokens)
   if (summedCost !== undefined) out.costCents = summedCost
   if (summedIn !== undefined) out.tokensInput = summedIn
   if (summedOut !== undefined) out.tokensOutput = summedOut
+  if (summedReasoning !== undefined) out.reasoningTokens = summedReasoning
   const bal = next.balanceRemainingCents ?? prev.balanceRemainingCents
   if (bal !== undefined) out.balanceRemainingCents = bal
   const rid = next.requestId ?? prev.requestId

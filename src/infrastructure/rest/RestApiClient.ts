@@ -97,11 +97,13 @@ export class RestApiClient implements RestApiPort {
   ): AsyncGenerator<ChatStreamChunk, void, void> {
     const sdk = createSdkClient(key, { baseUrl: this.apiBase })
     let capturedMeta: SdkResponseMeta | undefined
+    let finalReasoningTokens: number | undefined
     let stream: Awaited<ReturnType<SdkChatCompletions['create']>> & AsyncIterable<unknown>
     try {
       const result = await sdk.chat.completions.create(toSdkStreamParams(req), {
         signal,
         onMeta: (m) => { capturedMeta = m },
+        onFinalUsage: (u) => { finalReasoningTokens = u.reasoningTokens },
       })
       stream = result as typeof stream
     } catch {
@@ -128,7 +130,7 @@ export class RestApiClient implements RestApiPort {
     yield {
       kind: 'done',
       fullText: full,
-      meta: metaFromSdk(capturedMeta),
+      meta: metaFromSdk(capturedMeta, finalReasoningTokens),
       ...(fullReasoning ? { fullReasoning } : {}),
     }
   }
