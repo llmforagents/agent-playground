@@ -8,11 +8,11 @@ import {
   SelectValue,
 } from '@/presentation/components/ui/select'
 
-type Props = {
+type Props = Readonly<{
   model: string
   value: Effort
   onChange: (next: Effort) => void
-}
+}>
 
 const ORDER: readonly Effort[] = ['off', 'low', 'medium', 'high'] as const
 
@@ -37,13 +37,20 @@ export function EffortSelector({ model, value, onChange }: Props): React.JSX.Ele
   }
 
   return (
-    <div className="flex items-center gap-2 min-w-0" title={t(TOOLTIP_BY_FAMILY[family])}>
-      <span className="hidden sm:inline text-xs text-muted-foreground flex-shrink-0">
-        💭 {t('chat.effort.label')}
+    <div
+      className="flex items-stretch h-9 rounded-lg border border-border bg-background overflow-hidden"
+      title={t(TOOLTIP_BY_FAMILY[family])}
+    >
+      <span className="px-3 flex items-center text-xs font-medium text-foreground">
+        {t('chat.effort.label')}
       </span>
-      {/* SelectItem values come from ORDER (readonly Effort[]), so v is always a valid Effort. */}
+      <div className="border-l border-border" />
       <Select value={value} onValueChange={(v) => onChange(v as Effort)}>
-        <SelectTrigger size="sm" className="h-9 min-w-[6rem]" aria-label={t('chat.effort.label')}>
+        <SelectTrigger
+          size="sm"
+          className="h-full !border-0 !rounded-none shadow-none focus-visible:!ring-0 focus-visible:!border-0 px-3 min-w-[5rem] bg-transparent text-xs"
+          aria-label={t('chat.effort.label')}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

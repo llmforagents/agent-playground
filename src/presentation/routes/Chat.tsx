@@ -7,7 +7,8 @@ import { Card } from '@/presentation/components/ui/card'
 import { ErrorView } from '@/presentation/components/ErrorView'
 import { CostBadge } from '@/presentation/components/CostBadge'
 import { ModelPicker } from '@/presentation/components/ModelPicker'
-import { ToolsViewer } from '@/presentation/components/ToolsViewer'
+import { ModelPricingHint } from '@/presentation/components/ModelPricingHint'
+import { ToolsCompound } from '@/presentation/components/ToolsCompound'
 import { EffortSelector } from '@/presentation/components/EffortSelector'
 import { ReasoningBlock } from '@/presentation/components/ReasoningBlock'
 import { useModels } from '@/presentation/hooks/useModels'
@@ -154,6 +155,11 @@ export function Chat() {
     setEntries((m) => [...m, { kind: 'agentic', steps: agentic.state.status === 'error' ? agentic.state.steps : [], finalText: `⚠️ ${errMsg}` }])
   }, [agentic.state, setEntries])
 
+  const selectedModelInfo = useMemo(
+    () => models.data?.models.find((m) => m.slug === model),
+    [models.data, model],
+  )
+
   const chatMessages = useMemo((): readonly ChatMessage[] => {
     const out: ChatMessage[] = []
     for (const e of entries) {
@@ -239,37 +245,31 @@ export function Chat() {
   return (
     <div className="mx-auto max-w-4xl h-[calc(100vh-9rem)] flex flex-col gap-3">
       <Card className="p-3 md:p-4 flex-shrink-0 overflow-visible relative z-30 space-y-3">
-        {doneMeta ? (
-          <div className="flex justify-end pb-2 border-b border-border/50">
-            <CostBadge meta={doneMeta} />
-          </div>
-        ) : null}
-        <ModelPicker
-          models={models.data?.models ?? []}
-          value={model}
-          onChange={setModel}
-        />
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setToolsOn((v) => !v)}
-            className={`h-9 rounded-lg border px-3 text-xs flex items-center gap-1.5 transition-colors ${toolsOn ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-            title={toolsOn ? t('chat.toolsOnHint') : t('chat.toolsOffHint')}
-          >
-            <WrenchIcon className="size-3.5" />
-            {toolsOn ? t('chat.toolsOn') : t('chat.toolsOff')}
-          </button>
-          <ToolsViewer />
-          <EffortSelector model={model} value={effort} onChange={setEffort} />
+        <div className="flex items-center gap-2">
+          <ModelPicker
+            models={models.data?.models ?? []}
+            value={model}
+            onChange={setModel}
+          />
           <Button
             size="sm"
-            variant="ghost"
+            variant="outline"
             onClick={clear}
             disabled={entries.length === 0 || busy}
-            className="ml-auto"
+            className="h-9 flex-shrink-0 gap-1.5"
           >
+            <XIcon className="size-3.5" />
             {t('common.clear')}
           </Button>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ToolsCompound toolsOn={toolsOn} onToolsOnChange={setToolsOn} />
+          <EffortSelector model={model} value={effort} onChange={setEffort} />
+          <div className="ml-auto min-w-0">
+            {doneMeta
+              ? <CostBadge meta={doneMeta} />
+              : <ModelPricingHint model={selectedModelInfo} />}
+          </div>
         </div>
       </Card>
 
