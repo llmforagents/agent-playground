@@ -89,7 +89,8 @@ export class RestApiClient implements RestApiPort {
       return Err({ kind: 'validation', issues: zodIssuesToZodLike(parsed.error.issues) })
     }
     const reasoningTokens = extractReasoningTokens(parsed.data)
-    return Ok({ data: parsed.data, meta: metaFromSdk(capturedMeta, reasoningTokens) })
+    const usage = parsed.data.usage as SseUsage | undefined
+    return Ok({ data: parsed.data, meta: metaFromSdk(capturedMeta, reasoningTokens, usage) })
   }
 
   async *chatCompletionStream(
@@ -113,8 +114,13 @@ export class RestApiClient implements RestApiPort {
     }
     let full = ''
     let fullReasoning = ''
+    let lastUsage: SseUsage | undefined
     for await (const raw of stream) {
-      const chunk = raw as { choices?: readonly { delta?: { content?: string; reasoning?: string } }[] }
+      const chunk = raw as {
+        choices?: readonly { delta?: { content?: string; reasoning?: string } }[]
+        usage?: SseUsage
+      }
+      if (chunk.usage) lastUsage = chunk.usage
       const delta = chunk.choices?.[0]?.delta
       const contentDelta = delta?.content ?? ''
       const reasoningDelta = delta?.reasoning ?? ''
@@ -127,10 +133,14 @@ export class RestApiClient implements RestApiPort {
         yield { kind: 'delta', text: contentDelta }
       }
     }
+    // SDK 2.3.1 onFinalUsage looks for `lastUsage.reasoning_tokens` (top-level)
+    // but providers nest it under `completion_tokens_details.reasoning_tokens`.
+    // Likewise streaming responses rarely carry the x-tokens/x-cost HTTP headers
+    // that `onMeta` reads. Build meta from the SSE `usage` chunk as a fallback.
     yield {
       kind: 'done',
       fullText: full,
-      meta: metaFromSdk(capturedMeta, finalReasoningTokens),
+      meta: metaFromSdk(capturedMeta, finalReasoningTokens, lastUsage),
       ...(fullReasoning ? { fullReasoning } : {}),
     }
   }
@@ -218,14 +228,30 @@ export class RestApiClient implements RestApiPort {
 type SdkChatCompletions = LLM4AgentsClient['chat']['completions']
 type SdkResponseMeta = NonNullable<Parameters<SdkChatCompletions['create']>[1]>['onMeta'] extends ((m: infer M) => void) | undefined ? M : never
 
-function metaFromSdk(m: SdkResponseMeta | undefined, reasoningTokens?: number): ChatResponseMeta {
+type SseUsage = Readonly<{
+  prompt_tokens?: number
+  completion_tokens?: number
+  cost?: number
+  completion_tokens_details?: Readonly<{ reasoning_tokens?: number }>
+}>
+
+function metaFromSdk(
+  m: SdkResponseMeta | undefined,
+  reasoningTokens?: number,
+  usage?: SseUsage,
+): ChatResponseMeta {
   const out: { costCents?: number; tokensInput?: number; tokensOutput?: number; balanceRemainingCents?: number; requestId?: string; reasoningTokens?: number } = {}
-  if (m?.costUsdCents !== undefined) out.costCents = m.costUsdCents
-  if (m?.tokensInput !== undefined) out.tokensInput = m.tokensInput
-  if (m?.tokensOutput !== undefined) out.tokensOutput = m.tokensOutput
+  // Prefer SDK headers/callback values; fall back to SSE `usage` chunk fields.
+  const costCents = m?.costUsdCents ?? (usage?.cost !== undefined ? usage.cost * 100 : undefined)
+  const tokensInput = m?.tokensInput ?? usage?.prompt_tokens
+  const tokensOutput = m?.tokensOutput ?? usage?.completion_tokens
+  const reasoning = reasoningTokens ?? usage?.completion_tokens_details?.reasoning_tokens
+  if (costCents !== undefined) out.costCents = costCents
+  if (tokensInput !== undefined) out.tokensInput = tokensInput
+  if (tokensOutput !== undefined) out.tokensOutput = tokensOutput
   if (m?.balanceRemainingCents !== undefined) out.balanceRemainingCents = m.balanceRemainingCents
   if (m?.requestId !== undefined) out.requestId = m.requestId
-  if (reasoningTokens !== undefined) out.reasoningTokens = reasoningTokens
+  if (reasoning !== undefined) out.reasoningTokens = reasoning
   return out
 }
 
