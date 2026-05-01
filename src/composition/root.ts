@@ -31,7 +31,17 @@ export function composeApp(env: AppEnv): AppContainer {
     wallets,
     now: () => new Date(),
     newRequestId: () => safeRandomUUID(),
-    sdkConfig: { baseUrl: env.apiBase, mcpUrl: env.mcpBase },
+    sdkConfig: { baseUrl: env.apiBase, mcpUrl: ensureMcpPath(env.mcpBase) },
   })
   return env.claim ? { useCases, claim: env.claim } : { useCases }
+}
+
+// The SDK posts JSON-RPC directly to `mcpUrl` without appending a path. In dev
+// the Vite proxy rewrites `/proxy/mcp` → `${VITE_MCP_BASE}/mcp`, but in
+// production the SDK uses `mcpUrl` verbatim — so a base like
+// `https://mcp.llm4agents.com` would POST to `/` and get 404. Normalise to
+// always end in `/mcp`.
+function ensureMcpPath(base: string): string {
+  const trimmed = base.replace(/\/+$/, '')
+  return trimmed.endsWith('/mcp') ? trimmed : `${trimmed}/mcp`
 }
