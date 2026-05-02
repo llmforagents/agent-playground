@@ -1,13 +1,65 @@
 # Bugs externos que impiden el 100% del playground
 
-**Fecha:** 2026-05-01
-**Versión SDK auditada:** `@llmforagents/sdk@2.3.1`
+**Fecha original:** 2026-05-01 (SDK `@llmforagents/sdk@2.3.1`)
+**Última re-auditoría:** 2026-05-02 (SDK `@llmforagents/sdk@2.3.2`)
 **Backend auditado:** `https://api.llm4agents.com` y `https://mcp.llm4agents.com`
 **Contexto:** tras la auditoría E2E con Playwright (`docs/playwright-test-report-2026-05-01.md`), 3 de 6 bugs detectados eran fixeables localmente — ya están resueltos en esta rama. Los **3 restantes** dependen del SDK o del backend. Este documento describe técnicamente qué cambiar en cada componente para llegar al 100%.
 
 ---
 
-## Resumen ejecutivo
+## Estado actualizado (2026-05-02, SDK 2.3.2)
+
+| Bug | Atribución original | Estado tras SDK 2.3.2 | Causa real |
+|---|---|---|---|
+| **1. Tool message sin `tool_call_id` o `name`** | SDK | 🔴 SÍNTOMA persiste, **causa reasignada al backend** | El SDK 2.3.2 ya envía `tool_call_id` Y `name` en cada mensaje `role:"tool"` (verificado por captura de network). El upstream sigue devolviendo `400 "Tool message must have either name or tool_call_id"` desde Google AI Studio y `500 Internal Server Error` desde Anthropic ⇒ el backend `api.llm4agents.com` está descartando uno de los dos campos antes de hablar con OpenRouter/provider. |
+| **2. `analyze_image` Vision API empty response** | Backend | 🟢 **RESUELTO** | Ya no aparece `"Vision API returned empty response"` con ninguna URL. Probado con `picsum.photos` y respondió correctamente. |
+| **3. `edit_image`/`analyze_image` 403 con Wikipedia** | Backend | 🟡 NO resuelto, NO bloqueante | Sigue devolviendo 403 con Wikimedia (sin User-Agent realista). El mensaje pasó de `"prediction_failed — 403 Client Error"` a `"Failed to download source image: download_failed — HTTP 403"` (mejor error handling, mismo bug subyacente). Otras URLs públicas (picsum.photos, data URIs) funcionan al 100%. |
+
+### Fix del SDK confirmado en 2.3.2
+
+Auditoría de `node_modules/@llmforagents/sdk/dist/index.js`:
+
+- **Línea 481-486**: `normalizeToolCalls()` sintetiza `id: auto_${roundCount}_${i}_${Date.now()}` cuando el provider devuelve `tool_calls` sin id (Opción A propuesta abajo).
+- **Líneas 606, 759, 771, 816, 825, 837**: cada construcción de `role:"tool"` incluye ahora `name: toolCall.function.name` (Opción B).
+
+### Captura del body real (con Playwright network interception, 2026-05-02)
+
+El segundo POST `/proxy/api/v1/chat/completions` para `gemini-2.5-flash-lite` después de `google_search` envía:
+
+```json
+{
+  "model": "google/gemini-2.5-flash-lite",
+  "messages": [
+    {"role":"system", "content":"..."},
+    {"role":"user", "content":"¿Quién ganó el Mundial de fútbol de 2022? Usá google_search..."},
+    {"role":"assistant", "content":"", "tool_calls":[
+      {"id":"tool_google_search_Hz5e8Lnv8WEMh1g5GdZF", "type":"function",
+       "function":{"name":"google_search", "arguments":"{\"q\":\"...\"}"}}
+    ]},
+    {"role":"tool",
+     "content":"...resultados...",
+     "tool_call_id":"tool_google_search_Hz5e8Lnv8WEMh1g5GdZF",
+     "name":"google_search"}
+  ],
+  "stream": true,
+  "tools": [...]
+}
+```
+
+**Tanto `tool_call_id` como `name` están presentes y emparejados.** El backend `api.llm4agents.com` aún así devuelve 502 envolviendo `400 "Tool message must have either name or tool_call_id"` desde Google AI Studio. RequestIds capturados:
+
+- Google: `a294029c-df8a-4469-b472-486d79eddab6`
+- Anthropic (Haiku 4.5): `7472c804-5627-41b6-a348-2766fe5b4527`
+
+### Acciones recomendadas tras esta auditoría
+
+1. **Mover Bug 1 al equipo del backend** del playground. El SDK ya está OK; investigar la capa que adapta payload OpenAI → OpenRouter/provider en `api.llm4agents.com`. Buscar logs por los requestIds de arriba.
+2. **Cerrar Bug 2** como resuelto.
+3. **Re-priorizar Bug 3** como `nice-to-have` (no bloquea ningún caso de uso porque hay alternativas).
+
+---
+
+## Resumen ejecutivo (histórico — 2026-05-01 con SDK 2.3.1)
 
 | Bug | Componente | Severidad | Fix size |
 |---|---|---|---|
@@ -16,6 +68,8 @@
 | **3. `edit_image` upstream 403 con Wikipedia** | Backend image fetcher (proxy → image provider) | 🟡 MENOR — workaround: usar URLs permisivas o base64 | ~5 líneas (cambio user-agent) |
 
 Resolviendo **Bug 1** desbloquea el caso de uso más importante del playground (chat agentico con `google_search`/scraper/etc. multi-round). Es el **fix prioritario**.
+
+> **Update 2026-05-02:** SDK 2.3.2 publicó las dos correcciones recomendadas (Opción A + B descritas más abajo). El síntoma persiste en producción: el bug se trasladó al backend.
 
 ---
 
