@@ -29,6 +29,6 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    preview: { port: 4301, strictPort: true, host: true, allowedHosts: ['skywalker'] },
+    preview: { port: 4310, strictPort: true, host: true, allowedHosts: ['skywalker'] },
   }
 })
