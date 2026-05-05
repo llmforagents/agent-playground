@@ -36,6 +36,25 @@ export function Council() {
 
       {(state.isRunning || state.events.length > 0) ? (
         <>
+          {state.snapshotTimestamp && !state.isRunning ? (
+            <div className="rounded-lg border border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground flex flex-wrap items-center gap-2">
+              <span>📌 {t('council.lastRun')}</span>
+              <span className="font-mono">
+                {new Date(state.snapshotTimestamp).toLocaleString()}
+              </span>
+              {state.snapshotPlan ? (
+                <span className="rounded-md bg-foreground/10 px-1.5 py-0.5 font-medium">
+                  {state.snapshotPlan}
+                </span>
+              ) : null}
+              {state.snapshotTask ? (
+                <span className="truncate flex-1 min-w-0" title={state.snapshotTask}>
+                  · {state.snapshotTask}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
           <CouncilStream events={state.events} />
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Button variant="outline" size="sm" onClick={reset} disabled={state.isRunning}>

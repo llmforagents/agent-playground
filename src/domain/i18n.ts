@@ -445,6 +445,7 @@ const EN = {
   'council.finalAnswer': 'Final answer',
   'council.synthesizedBy': 'Synthesized by',
   'council.totalCost': 'Total cost: ${cost} USD',
+  'council.lastRun': 'Last run',
   'council.newRun': 'Start a new run',
   'council.noAgent': 'Activate an agent first.',
 
@@ -889,6 +890,7 @@ const ES: Record<MessageKey, string> = {
   'council.finalAnswer': 'Respuesta final',
   'council.synthesizedBy': 'Sintetizado por',
   'council.totalCost': 'Costo total: ${cost} USD',
+  'council.lastRun': 'Última corrida',
   'council.newRun': 'Nueva corrida',
   'council.noAgent': 'Activá un agente primero.',
 

@@ -19,7 +19,7 @@ import type { MessageKey } from '@/domain/i18n'
 
 type Props = Readonly<{
   disabled: boolean
-  onStart: (args: { config: CouncilConfig; userTask: string }) => void
+  onStart: (args: { config: CouncilConfig; userTask: string; plan: CouncilPlan }) => void
 }>
 
 const PLAN_LABEL_KEY: Record<CouncilPlan, MessageKey> = {
@@ -58,7 +58,7 @@ export function CouncilSetup({ disabled, onStart }: Props) {
       )
       if (!ok) return
     }
-    onStart({ config, userTask: task })
+    onStart({ config, userTask: task, plan })
   }
 
   const updateDrafter = (idx: number, slug: string): void => {
