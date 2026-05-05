@@ -155,12 +155,23 @@ export function useCouncilStream(): {
           }))
         } finally {
           if (!ac.signal.aborted && agent) {
+            // Drop *_delta events before persisting — they're redundant with the
+            // matching *_done.content fields and explode storage size (~785
+            // events/run vs ~25 lifecycle events). The UI's reduceEvents writes
+            // b.text = e.content on every *_done, so a delta-free history
+            // re-renders identically.
+            const persistableEvents = collectedEvents.filter(
+              (e) =>
+                e.kind !== 'draft_delta' &&
+                e.kind !== 'debate_delta' &&
+                e.kind !== 'synthesis_delta',
+            )
             const snapshot: CouncilSnapshot = {
               id: runId,
               timestamp: new Date().toISOString(),
               plan: args.plan,
               userTask: args.userTask,
-              events: collectedEvents,
+              events: persistableEvents,
               finalAnswer,
               totalCostCents,
               error: errMessage,
