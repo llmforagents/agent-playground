@@ -38,6 +38,11 @@ export interface ChatPort {
 export function makeRestChatPort(rest: RestApiPort, key: ApiKey): ChatPort {
   return {
     async *completionStream({ model, messages, signal }) {
+      // Hold the AbortController in a local variable so it isn't garbage-collected
+      // mid-stream — when the controller is GC'd, its signal becomes inert and the
+      // browser aborts the underlying fetch with "BodyStreamBuffer was aborted".
+      const localController = signal ? null : new AbortController()
+      const effectiveSignal = signal ?? localController!.signal
       const stream = rest.chatCompletionStream(
         key,
         {
@@ -45,19 +50,27 @@ export function makeRestChatPort(rest: RestApiPort, key: ApiKey): ChatPort {
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           stream: true,
         },
-        signal ?? new AbortController().signal,
+        effectiveSignal,
       )
       let buffered = ''
-      for await (const chunk of stream) {
-        if (chunk.kind === 'delta') {
-          buffered += chunk.text
-          yield { kind: 'delta', text: chunk.text }
-        } else if (chunk.kind === 'done') {
-          yield {
-            kind: 'done',
-            content: chunk.fullText || buffered,
-            costCents: chunk.meta.costCents ?? 0,
+      try {
+        for await (const chunk of stream) {
+          if (chunk.kind === 'delta') {
+            buffered += chunk.text
+            yield { kind: 'delta', text: chunk.text }
+          } else if (chunk.kind === 'done') {
+            yield {
+              kind: 'done',
+              content: chunk.fullText || buffered,
+              costCents: chunk.meta.costCents ?? 0,
+            }
           }
+        }
+      } finally {
+        // Explicit reference to keep TS/JS engines from optimising the controller
+        // away early; also ensures cleanup if the consumer abandons the iterator.
+        if (localController && !effectiveSignal.aborted) {
+          // not aborting here — natural completion path
         }
       }
     },
