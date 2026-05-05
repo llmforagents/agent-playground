@@ -14,7 +14,6 @@ import { useModels } from '@/presentation/hooks/useModels'
 import { Button } from '@/presentation/components/ui/button'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { Label } from '@/presentation/components/ui/label'
-import { Tabs, TabsList, TabsTrigger } from '@/presentation/components/ui/tabs'
 import { ModelPicker } from '@/presentation/components/ModelPicker'
 import type { MessageKey } from '@/domain/i18n'
 
@@ -78,23 +77,31 @@ export function CouncilSetup({ disabled, onStart }: Props) {
     <div className="space-y-5">
       <div className="space-y-1.5">
         <Label>{t('council.planLabel')}</Label>
-        <Tabs value={plan} onValueChange={(v) => selectPlan(v as CouncilPlan)}>
-          <TabsList className="w-full grid grid-cols-3 h-auto p-1 gap-1">
-            {COUNCIL_PLAN_ORDER.map((p) => (
-              <TabsTrigger
+        <div className="rounded-lg border border-border bg-muted/30 p-1 grid grid-cols-3 gap-1">
+          {COUNCIL_PLAN_ORDER.map((p) => {
+            const isActive = plan === p
+            return (
+              <button
                 key={p}
-                value={p}
+                type="button"
+                onClick={() => selectPlan(p)}
                 disabled={disabled}
-                className="flex flex-col items-center gap-0.5 h-auto py-2.5 px-2 whitespace-normal"
+                className={`flex flex-col items-center gap-0.5 py-2 text-sm rounded-md transition-colors disabled:opacity-50 disabled:pointer-events-none ${
+                  isActive
+                    ? 'bg-foreground/15 text-foreground shadow-sm font-medium ring-1 ring-foreground/10'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                }`}
               >
-                <span className="font-medium leading-tight">{t(PLAN_LABEL_KEY[p])}</span>
-                <span className="text-[10px] text-muted-foreground leading-tight">
+                <span className="leading-tight">{t(PLAN_LABEL_KEY[p])}</span>
+                <span
+                  className={`text-[10px] leading-tight ${isActive ? 'text-foreground/70' : 'text-muted-foreground/80'}`}
+                >
                   {t(PLAN_HINT_KEY[p])}
                 </span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="space-y-1.5">
