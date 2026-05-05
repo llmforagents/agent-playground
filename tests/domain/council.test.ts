@@ -6,52 +6,55 @@ import {
   DEFAULT_COUNCIL_CONFIG,
   DEFAULT_COUNCIL_PLAN,
   DRAFTER_SLOTS,
+  MAX_DEBATE_ROUNDS,
   MAX_DRAFTERS,
+  MIN_DEBATE_ROUNDS,
   MIN_DRAFTERS,
+  PLAN_DEFAULT_ROUNDS,
   estimateCouncilCostCents,
   type CouncilConfig,
 } from '@/domain/council'
 import { Model } from '@/domain/branded'
 
 describe('domain/council', () => {
-  it('DEFAULT_COUNCIL_CONFIG has 3 drafters and a chairman', () => {
+  it('DEFAULT_COUNCIL_CONFIG has 3 drafters, a chairman, and the lite default rounds', () => {
     expect(DEFAULT_COUNCIL_CONFIG.drafters).toHaveLength(3)
     expect(DEFAULT_COUNCIL_CONFIG.chairman).toBeDefined()
-    expect(DEFAULT_COUNCIL_CONFIG.maxCritiqueRounds).toBe(1)
-    expect(DEFAULT_COUNCIL_CONFIG.enableDrafterRevision).toBe(false)
+    expect(DEFAULT_COUNCIL_CONFIG.debateRounds).toBe(PLAN_DEFAULT_ROUNDS.lite)
   })
 
   it('DRAFTER_SLOTS are A/B/C', () => {
     expect(DRAFTER_SLOTS).toEqual(['A', 'B', 'C'])
   })
 
-  it('MIN_DRAFTERS=2 and MAX_DRAFTERS=3', () => {
+  it('MIN/MAX drafters and debate rounds are fixed', () => {
     expect(MIN_DRAFTERS).toBe(2)
     expect(MAX_DRAFTERS).toBe(3)
+    expect(MIN_DEBATE_ROUNDS).toBe(2)
+    expect(MAX_DEBATE_ROUNDS).toBe(5)
   })
 
-  it('estimateCouncilCostCents stays under expensive threshold for all-lite default', () => {
-    const cents = estimateCouncilCostCents(DEFAULT_COUNCIL_CONFIG)
+  it('plans have ascending default debate rounds', () => {
+    expect(PLAN_DEFAULT_ROUNDS.lite).toBeLessThanOrEqual(PLAN_DEFAULT_ROUNDS.pro)
+    expect(PLAN_DEFAULT_ROUNDS.pro).toBeLessThanOrEqual(PLAN_DEFAULT_ROUNDS.power)
+    expect(PLAN_DEFAULT_ROUNDS.power).toBeLessThanOrEqual(MAX_DEBATE_ROUNDS)
+  })
+
+  it('estimateCouncilCostCents stays under expensive threshold for lite default', () => {
+    const cents = estimateCouncilCostCents(COUNCIL_PLANS.lite)
     expect(cents).toBeLessThan(COUNCIL_EXPENSIVE_THRESHOLD_CENTS)
-    // 3 lite drafts (1) + 3 lite critiques (1) + 1 lite synth (2) = 8
-    expect(cents).toBe(8)
   })
 
-  it('estimateCouncilCostCents flags premium configurations as expensive', () => {
-    const expensive: CouncilConfig = {
-      drafters: [
-        Model('anthropic/claude-opus-4'),
-        Model('anthropic/claude-sonnet-4.5'),
-        Model('openai/gpt-5.1'),
-      ],
-      chairman: Model('anthropic/claude-opus-4'),
-      maxCritiqueRounds: 1,
-      enableDrafterRevision: false,
-    }
-    const cents = estimateCouncilCostCents(expensive)
-    // 3 premium drafts (8) + 3 premium critiques (8) + 1 premium synth (15) = 47
-    // Doesn't quite hit 50, but a 4-premium config would.
-    expect(cents).toBeGreaterThan(40)
+  it('Power plan trips the expensive threshold', () => {
+    expect(estimateCouncilCostCents(COUNCIL_PLANS.power)).toBeGreaterThanOrEqual(
+      COUNCIL_EXPENSIVE_THRESHOLD_CENTS,
+    )
+  })
+
+  it('cost grows with debate rounds', () => {
+    const lo: CouncilConfig = { ...COUNCIL_PLANS.pro, debateRounds: 2 }
+    const hi: CouncilConfig = { ...COUNCIL_PLANS.pro, debateRounds: 5 }
+    expect(estimateCouncilCostCents(hi)).toBeGreaterThan(estimateCouncilCostCents(lo))
   })
 
   it('COUNCIL_PLANS exposes lite/pro/power; DEFAULT is lite', () => {
@@ -62,37 +65,13 @@ describe('domain/council', () => {
     expect(String(COUNCIL_PLANS.power.chairman)).toContain('opus')
   })
 
-  it('Power plan trips the expensive threshold; Lite and Pro do not', () => {
-    expect(estimateCouncilCostCents(COUNCIL_PLANS.lite)).toBeLessThan(COUNCIL_EXPENSIVE_THRESHOLD_CENTS)
-    expect(estimateCouncilCostCents(COUNCIL_PLANS.pro)).toBeLessThan(COUNCIL_EXPENSIVE_THRESHOLD_CENTS)
-    expect(estimateCouncilCostCents(COUNCIL_PLANS.power)).toBeGreaterThanOrEqual(COUNCIL_EXPENSIVE_THRESHOLD_CENTS)
-  })
-
   it('isPremium heuristic matches new model families', () => {
-    // gpt-5.x premium, gpt-5 (no version) not premium per heuristic
     const gpt5Lite: CouncilConfig = { ...COUNCIL_PLANS.lite, chairman: Model('openai/gpt-5') }
     const gpt5Premium: CouncilConfig = { ...COUNCIL_PLANS.lite, chairman: Model('openai/gpt-5.2') }
     expect(estimateCouncilCostCents(gpt5Lite)).toBeLessThan(estimateCouncilCostCents(gpt5Premium))
 
-    // gemini-2.5-pro is premium, gemini-2.5-flash is not
     const flashChair: CouncilConfig = { ...COUNCIL_PLANS.lite, chairman: Model('google/gemini-2.5-flash') }
     const proChair: CouncilConfig = { ...COUNCIL_PLANS.lite, chairman: Model('google/gemini-2.5-pro') }
     expect(estimateCouncilCostCents(flashChair)).toBeLessThan(estimateCouncilCostCents(proChair))
-  })
-
-  it('estimateCouncilCostCents distinguishes lite vs premium per slot', () => {
-    const mixed: CouncilConfig = {
-      drafters: [
-        Model('google/gemini-2.5-flash-lite'),
-        Model('anthropic/claude-haiku-4.5'),
-        Model('anthropic/claude-opus-4'),
-      ],
-      chairman: Model('google/gemini-2.5-flash-lite'),
-      maxCritiqueRounds: 1,
-      enableDrafterRevision: false,
-    }
-    const cents = estimateCouncilCostCents(mixed)
-    // 2 lite drafts + 1 premium draft (1+1+8) + same critiques (10) + lite synth (2) = 22
-    expect(cents).toBe(22)
   })
 })

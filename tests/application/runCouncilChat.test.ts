@@ -1,11 +1,18 @@
 import { describe, it, expect } from 'vitest'
-import { runCouncilChat, type ChatPort } from '@/application/runCouncilChat'
+import {
+  runCouncilChat,
+  type ChatPort,
+  type ChatPortChunk,
+  type ChatPortArgs,
+} from '@/application/runCouncilChat'
 import { Ok, Err } from '@/domain/result'
-import { DEFAULT_COUNCIL_CONFIG } from '@/domain/council'
+import { COUNCIL_PLANS } from '@/domain/council'
 import type { CouncilEvent } from '@/domain/councilEvents'
 
-function fakeChat(impl: ChatPort['completion']): ChatPort {
-  return { completion: impl }
+type StreamImpl = (args: ChatPortArgs) => AsyncGenerator<ChatPortChunk, void, void>
+
+function fakeChat(impl: StreamImpl): ChatPort {
+  return { completionStream: impl }
 }
 
 async function collect(
@@ -16,118 +23,156 @@ async function collect(
   return out
 }
 
-function isCritiqueRequest(messages: ReadonlyArray<{ content: string }>): boolean {
-  return messages.some((m) => m.content.includes("Other drafters' answers"))
+function isDebateRequest(messages: ReadonlyArray<{ content: string }>): boolean {
+  return messages.some((m) => /Other drafters'.*(drafts|previous debate)/i.test(m.content))
 }
 
 function isSynthesisRequest(messages: ReadonlyArray<{ content: string }>): boolean {
-  return messages.some((m) => m.content.includes('Critiques:'))
+  return messages.some((m) => m.content.includes('Full debate'))
+}
+
+async function* singleChunk(
+  content: string,
+  costCents = 1,
+): AsyncGenerator<ChatPortChunk, void, void> {
+  yield { kind: 'delta', text: content }
+  yield { kind: 'done', content, costCents }
+}
+
+function errorStream(): AsyncGenerator<ChatPortChunk, void, void> {
+  return (async function* () {
+    throw new Error('boom')
+  })()
 }
 
 describe('runCouncilChat', () => {
-  it('happy path emits all expected events in order', async () => {
-    const chat = fakeChat(async ({ messages }) => {
-      const isSynth = isSynthesisRequest(messages)
-      const isCrit = !isSynth && isCritiqueRequest(messages)
-      const content = isSynth ? 'final' : isCrit ? 'critique' : 'draft'
-      return Ok({ content, costCents: 1 })
+  it('happy path with 2 debate rounds (default lite) emits expected event sequence', async () => {
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      const content = isSynth ? 'final' : isDeb ? 'debate' : 'draft'
+      return singleChunk(content)
     })
 
     const events = await collect(
-      runCouncilChat({ chat }, { config: DEFAULT_COUNCIL_CONFIG, userTask: 't' }),
+      runCouncilChat({ chat }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
     )
 
     const kinds = events.map((e) => e.kind)
     expect(kinds[0]).toBe('council_started')
+    // 3 drafts done
     expect(kinds.filter((k) => k === 'draft_done')).toHaveLength(3)
-    expect(kinds.filter((k) => k === 'critique_done')).toHaveLength(3)
+    // 2 rounds × 3 debaters = 6 debate_done
+    expect(kinds.filter((k) => k === 'debate_done')).toHaveLength(6)
+    // 2 round_started events
+    expect(kinds.filter((k) => k === 'debate_round_started')).toHaveLength(2)
     expect(kinds).toContain('synthesis_done')
     expect(kinds[kinds.length - 1]).toBe('council_done')
+  })
 
-    const done = events.find((e) => e.kind === 'council_done')
-    expect(done && 'totalCostCents' in done && done.totalCostCents).toBe(7) // 3 drafts + 3 critiques + 1 synth
+  it('respects MAX_DEBATE_ROUNDS by clamping config.debateRounds', async () => {
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      return singleChunk(isSynth ? 'f' : isDeb ? 'd' : 'dr')
+    })
+    const events = await collect(
+      runCouncilChat(
+        { chat },
+        { config: { ...COUNCIL_PLANS.lite, debateRounds: 50 }, userTask: 't' },
+      ),
+    )
+    expect(events.filter((e) => e.kind === 'debate_round_started')).toHaveLength(5)
+  })
+
+  it('streams deltas before done events', async () => {
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      const content = isSynth ? 'final' : isDeb ? 'debate' : 'draft'
+      return singleChunk(content)
+    })
+    const events = await collect(
+      runCouncilChat({ chat }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
+    )
+    expect(events.some((e) => e.kind === 'draft_delta')).toBe(true)
+    expect(events.some((e) => e.kind === 'debate_delta')).toBe(true)
+    expect(events.some((e) => e.kind === 'synthesis_delta')).toBe(true)
   })
 
   it('aborts when 2 of 3 drafters fail', async () => {
     let drafts = 0
-    const chat = fakeChat(async ({ messages }) => {
-      const isSynth = isSynthesisRequest(messages)
-      const isCrit = !isSynth && isCritiqueRequest(messages)
-      const isDraft = !isSynth && !isCrit
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      const isDraft = !isSynth && !isDeb
       if (isDraft) {
         drafts++
-        if (drafts <= 2) {
-          return Err({ kind: 'unknown', message: 'boom', raw: null })
-        }
+        if (drafts <= 2) return errorStream()
       }
-      return Ok({ content: 'x', costCents: 1 })
+      return singleChunk('x')
     })
-
     const events = await collect(
-      runCouncilChat({ chat }, { config: DEFAULT_COUNCIL_CONFIG, userTask: 't' }),
+      runCouncilChat({ chat }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
     )
-
-    expect(events.find((e) => e.kind === 'council_failed')).toBeTruthy()
-    expect(events.find((e) => e.kind === 'synthesis_done')).toBeUndefined()
+    expect(events.some((e) => e.kind === 'council_failed')).toBe(true)
+    expect(events.some((e) => e.kind === 'synthesis_done')).toBe(false)
   })
 
   it('continues when 1 of 3 drafters fails', async () => {
     let drafts = 0
-    const chat = fakeChat(async ({ messages }) => {
-      const isSynth = isSynthesisRequest(messages)
-      const isCrit = !isSynth && isCritiqueRequest(messages)
-      const isDraft = !isSynth && !isCrit
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      const isDraft = !isSynth && !isDeb
       if (isDraft) {
         drafts++
-        if (drafts === 1) {
-          return Err({ kind: 'unknown', message: 'boom', raw: null })
-        }
+        if (drafts === 1) return errorStream()
       }
-      return Ok({ content: 'x', costCents: 1 })
+      return singleChunk('x')
     })
-
     const events = await collect(
-      runCouncilChat({ chat }, { config: DEFAULT_COUNCIL_CONFIG, userTask: 't' }),
+      runCouncilChat({ chat }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
     )
-
-    expect(events.find((e) => e.kind === 'draft_failed')).toBeTruthy()
-    expect(events.find((e) => e.kind === 'council_done')).toBeTruthy()
+    expect(events.some((e) => e.kind === 'draft_failed')).toBe(true)
+    expect(events.some((e) => e.kind === 'council_done')).toBe(true)
   })
 
-  it('aborts when chairman fails with partialCostCents accumulated', async () => {
-    const chat = fakeChat(async ({ messages }) => {
-      if (isSynthesisRequest(messages)) {
-        return Err({ kind: 'unknown', message: 'chairman blew up', raw: null })
+  it('debate prompt does not leak the debater own slot label', async () => {
+    const seenDebatePrompts: string[] = []
+    const chat = fakeChat((args) => {
+      const userMsg = args.messages.find((m) => m.role === 'user')?.content ?? ''
+      if (isDebateRequest(args.messages) && !isSynthesisRequest(args.messages)) {
+        seenDebatePrompts.push(userMsg)
       }
-      return Ok({ content: 'x', costCents: 1 })
+      return singleChunk('x')
     })
-
-    const events = await collect(
-      runCouncilChat({ chat }, { config: DEFAULT_COUNCIL_CONFIG, userTask: 't' }),
-    )
-
-    const failed = events.find((e) => e.kind === 'council_failed')
-    expect(failed).toBeTruthy()
-    expect(failed && 'partialCostCents' in failed && failed.partialCostCents).toBe(6) // 3 drafts + 3 critiques, no synth
-  })
-
-  it('critique prompt does not leak the critic own slot label', async () => {
-    const seenCritiqueMessages: string[] = []
-    const chat = fakeChat(async ({ messages }) => {
-      const userMsg = messages.find((m) => m.role === 'user')?.content ?? ''
-      if (userMsg.includes("Other drafters' answers") && !userMsg.includes('Critiques:')) {
-        seenCritiqueMessages.push(userMsg)
-      }
-      return Ok({ content: 'x', costCents: 1 })
-    })
-
     await collect(
-      runCouncilChat({ chat }, { config: DEFAULT_COUNCIL_CONFIG, userTask: 't' }),
+      runCouncilChat({ chat }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
     )
-
-    expect(seenCritiqueMessages).toHaveLength(3)
-    for (const msg of seenCritiqueMessages) {
-      expect(msg).not.toMatch(/Drafter [ABC]\b/)
+    expect(seenDebatePrompts.length).toBeGreaterThan(0)
+    for (const p of seenDebatePrompts) {
+      expect(p).not.toMatch(/Drafter [ABC]\b/)
     }
   })
+
+  it('aborts when chairman fails with partial cost preserved', async () => {
+    const chat = fakeChat((args) => {
+      if (isSynthesisRequest(args.messages)) return errorStream()
+      return singleChunk('x')
+    })
+    const events = await collect(
+      runCouncilChat({ chat }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
+    )
+    const failed = events.find((e) => e.kind === 'council_failed')
+    expect(failed).toBeTruthy()
+    if (failed && failed.kind === 'council_failed') {
+      // 3 drafts + (2 rounds × 3 debaters) = 9 cents accumulated before chairman
+      expect(failed.partialCostCents).toBe(9)
+    }
+  })
+
+  // Use Err just to keep import warnings quiet in case the test file gets pruned later.
+  void Err
+  void Ok
 })

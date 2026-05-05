@@ -19,7 +19,7 @@ function mkSnapshot(id: string, plan: CouncilPlan, ts: string, task = 't'): Coun
     timestamp: ts,
     plan,
     userTask: task,
-    events: [{ kind: 'council_started', totalDrafters: 3, chairman: 'm' as never }],
+    events: [{ kind: 'council_started', totalDrafters: 3, chairman: 'm' as never, debateRounds: 2 }],
     finalAnswer: 'ok',
     totalCostCents: 1,
     error: null,

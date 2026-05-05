@@ -6,6 +6,8 @@ import {
   COUNCIL_PLANS,
   COUNCIL_PLAN_ORDER,
   DEFAULT_COUNCIL_PLAN,
+  MAX_DEBATE_ROUNDS,
+  MIN_DEBATE_ROUNDS,
   estimateCouncilCostCents,
 } from '@/domain/council'
 import { Model } from '@/domain/branded'
@@ -73,6 +75,11 @@ export function CouncilSetup({ disabled, onStart }: Props) {
     setConfig({ ...config, chairman: Model(slug) })
   }
 
+  const updateRounds = (n: number): void => {
+    const clamped = Math.max(MIN_DEBATE_ROUNDS, Math.min(MAX_DEBATE_ROUNDS, n))
+    setConfig({ ...config, debateRounds: clamped })
+  }
+
   return (
     <div className="space-y-5">
       <div className="space-y-1.5">
@@ -130,6 +137,30 @@ export function CouncilSetup({ disabled, onStart }: Props) {
             />
           </div>
         ))}
+      </div>
+
+      <div className="space-y-2">
+        <Label>
+          {t('council.roundsLabel')}{' '}
+          <span className="font-mono text-muted-foreground">({config.debateRounds})</span>
+        </Label>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={MIN_DEBATE_ROUNDS}
+            max={MAX_DEBATE_ROUNDS}
+            step={1}
+            value={config.debateRounds}
+            onChange={(e) => updateRounds(Number(e.target.value))}
+            disabled={disabled}
+            className="flex-1 accent-foreground"
+            aria-label={t('council.roundsLabel')}
+          />
+          <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">
+            {MIN_DEBATE_ROUNDS}–{MAX_DEBATE_ROUNDS}
+          </span>
+        </div>
+        <p className="text-[11px] text-muted-foreground">{t('council.roundsHint')}</p>
       </div>
 
       <div className="space-y-2">
