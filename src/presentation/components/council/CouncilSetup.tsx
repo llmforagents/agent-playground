@@ -79,11 +79,18 @@ export function CouncilSetup({ disabled, onStart }: Props) {
       <div className="space-y-1.5">
         <Label>{t('council.planLabel')}</Label>
         <Tabs value={plan} onValueChange={(v) => selectPlan(v as CouncilPlan)}>
-          <TabsList className="w-full grid grid-cols-3">
+          <TabsList className="w-full grid grid-cols-3 h-auto p-1 gap-1">
             {COUNCIL_PLAN_ORDER.map((p) => (
-              <TabsTrigger key={p} value={p} disabled={disabled} className="flex flex-col items-center gap-0.5 py-2">
-                <span className="font-medium">{t(PLAN_LABEL_KEY[p])}</span>
-                <span className="text-[10px] text-muted-foreground">{t(PLAN_HINT_KEY[p])}</span>
+              <TabsTrigger
+                key={p}
+                value={p}
+                disabled={disabled}
+                className="flex flex-col items-center gap-0.5 h-auto py-2.5 px-2 whitespace-normal"
+              >
+                <span className="font-medium leading-tight">{t(PLAN_LABEL_KEY[p])}</span>
+                <span className="text-[10px] text-muted-foreground leading-tight">
+                  {t(PLAN_HINT_KEY[p])}
+                </span>
               </TabsTrigger>
             ))}
           </TabsList>
