@@ -3,13 +3,14 @@ import { useCouncilStream } from '@/presentation/hooks/useCouncilStream'
 import { useActiveAgent } from '@/presentation/hooks/useActiveAgent'
 import { CouncilSetup } from '@/presentation/components/council/CouncilSetup'
 import { CouncilStream } from '@/presentation/components/council/CouncilStream'
+import { CouncilHistory } from '@/presentation/components/council/CouncilHistory'
 import { Card } from '@/presentation/components/ui/card'
 import { Button } from '@/presentation/components/ui/button'
 
 export function Council() {
   const t = useT()
   const agent = useActiveAgent()
-  const { state, start, reset } = useCouncilStream()
+  const { state, runs, start, selectRun, closeRun, deleteRun, clearHistory } = useCouncilStream()
 
   if (!agent) {
     return (
@@ -21,6 +22,9 @@ export function Council() {
     )
   }
 
+  const showSetup = !state.isRunning && state.events.length === 0
+  const showRun = state.isRunning || state.events.length > 0
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="space-y-1">
@@ -28,28 +32,28 @@ export function Council() {
         <p className="text-sm text-muted-foreground">{t('council.subtitle')}</p>
       </header>
 
-      {!state.isRunning && state.events.length === 0 ? (
+      {showSetup ? (
         <Card className="p-6">
           <CouncilSetup disabled={false} onStart={start} />
         </Card>
       ) : null}
 
-      {(state.isRunning || state.events.length > 0) ? (
+      {showRun ? (
         <>
-          {state.snapshotTimestamp && !state.isRunning ? (
+          {state.activeTimestamp && !state.isRunning ? (
             <div className="rounded-lg border border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground flex flex-wrap items-center gap-2">
               <span>📌 {t('council.lastRun')}</span>
               <span className="font-mono">
-                {new Date(state.snapshotTimestamp).toLocaleString()}
+                {new Date(state.activeTimestamp).toLocaleString()}
               </span>
-              {state.snapshotPlan ? (
+              {state.activePlan ? (
                 <span className="rounded-md bg-foreground/10 px-1.5 py-0.5 font-medium">
-                  {state.snapshotPlan}
+                  {state.activePlan}
                 </span>
               ) : null}
-              {state.snapshotTask ? (
-                <span className="truncate flex-1 min-w-0" title={state.snapshotTask}>
-                  · {state.snapshotTask}
+              {state.activeTask ? (
+                <span className="truncate flex-1 min-w-0" title={state.activeTask}>
+                  · {state.activeTask}
                 </span>
               ) : null}
             </div>
@@ -57,7 +61,7 @@ export function Council() {
 
           <CouncilStream events={state.events} />
           <div className="flex flex-wrap items-center gap-3 pt-2">
-            <Button variant="outline" size="sm" onClick={reset} disabled={state.isRunning}>
+            <Button variant="outline" size="sm" onClick={closeRun} disabled={state.isRunning}>
               {t('council.newRun')}
             </Button>
             {state.totalCostCents > 0 ? (
@@ -74,6 +78,14 @@ export function Council() {
           <div className="text-sm text-destructive">{state.error}</div>
         </Card>
       ) : null}
+
+      <CouncilHistory
+        runs={runs}
+        activeRunId={state.activeRunId}
+        onSelect={selectRun}
+        onDelete={deleteRun}
+        onClearAll={clearHistory}
+      />
     </div>
   )
 }

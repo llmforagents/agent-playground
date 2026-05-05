@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CouncilConfig, CouncilPlan } from '@/domain/council'
 import type { CouncilEvent } from '@/domain/councilEvents'
-import type { AgentId } from '@/domain/branded'
 import { useAppContainer } from './useAppContainer'
 import { useActiveAgent } from './useActiveAgent'
 import { useCouncilStore, type CouncilSnapshot } from './useCouncilStore'
@@ -12,9 +11,10 @@ export type CouncilUiState = Readonly<{
   finalAnswer: string | null
   totalCostCents: number
   error: string | null
-  snapshotTimestamp: string | null
-  snapshotPlan: CouncilPlan | null
-  snapshotTask: string | null
+  activeRunId: string | null
+  activeTimestamp: string | null
+  activePlan: CouncilPlan | null
+  activeTask: string | null
 }>
 
 const INITIAL: CouncilUiState = {
@@ -23,9 +23,10 @@ const INITIAL: CouncilUiState = {
   finalAnswer: null,
   totalCostCents: 0,
   error: null,
-  snapshotTimestamp: null,
-  snapshotPlan: null,
-  snapshotTask: null,
+  activeRunId: null,
+  activeTimestamp: null,
+  activePlan: null,
+  activeTask: null,
 }
 
 function fromSnapshot(snap: CouncilSnapshot): CouncilUiState {
@@ -35,9 +36,10 @@ function fromSnapshot(snap: CouncilSnapshot): CouncilUiState {
     finalAnswer: snap.finalAnswer,
     totalCostCents: snap.totalCostCents,
     error: snap.error,
-    snapshotTimestamp: snap.timestamp,
-    snapshotPlan: snap.plan,
-    snapshotTask: snap.userTask,
+    activeRunId: snap.id,
+    activeTimestamp: snap.timestamp,
+    activePlan: snap.plan,
+    activeTask: snap.userTask,
   }
 }
 
@@ -50,29 +52,43 @@ function newRunId(): string {
 
 export function useCouncilStream(): {
   state: CouncilUiState
+  runs: ReadonlyArray<CouncilSnapshot>
   start: (args: { config: CouncilConfig; userTask: string; plan: CouncilPlan }) => void
-  reset: () => void
+  selectRun: (runId: string) => void
+  closeRun: () => void
+  deleteRun: (runId: string) => void
+  clearHistory: () => void
 } {
   const container = useAppContainer()
   const agent = useActiveAgent()
-  const persisted = useCouncilStore((s) =>
-    agent ? s.byAgent[agent.id] : undefined,
-  )
-  const setSnapshot = useCouncilStore((s) => s.setSnapshot)
-  const clearSnapshot = useCouncilStore((s) => s.clearSnapshot)
+  const bucket = useCouncilStore((s) => (agent ? s.byAgent[agent.id] : undefined))
+  const addRun = useCouncilStore((s) => s.addRun)
+  const setActiveRun = useCouncilStore((s) => s.setActiveRun)
+  const deleteRunStore = useCouncilStore((s) => s.deleteRun)
+  const clearAllRuns = useCouncilStore((s) => s.clearAllRuns)
+
+  const activeSnapshot = bucket?.activeRunId
+    ? bucket.runs.find((r) => r.id === bucket.activeRunId)
+    : undefined
 
   const [state, setState] = useState<CouncilUiState>(() =>
-    persisted ? fromSnapshot(persisted) : INITIAL,
+    activeSnapshot ? fromSnapshot(activeSnapshot) : INITIAL,
   )
   const abortRef = useRef<AbortController | null>(null)
-  const lastHydratedAgent = useRef<AgentId | null>(agent?.id ?? null)
+  const lastHydratedKey = useRef<string>(`${agent?.id ?? ''}::${bucket?.activeRunId ?? ''}`)
 
-  // Re-hydrate when the active agent changes (each agent has its own snapshot).
+  // Re-hydrate when the active agent changes OR when the persisted active run changes
+  // (e.g. after a fresh run lands or the user picks a past run from the list).
+  // We do NOT re-hydrate while a run is in progress, otherwise mid-stream events get clobbered.
   useEffect(() => {
-    if (agent?.id === lastHydratedAgent.current) return
-    lastHydratedAgent.current = agent?.id ?? null
-    setState(persisted ? fromSnapshot(persisted) : INITIAL)
-  }, [agent?.id, persisted])
+    const key = `${agent?.id ?? ''}::${bucket?.activeRunId ?? ''}`
+    if (key === lastHydratedKey.current) return
+    lastHydratedKey.current = key
+    setState((prev) => {
+      if (prev.isRunning) return prev
+      return activeSnapshot ? fromSnapshot(activeSnapshot) : INITIAL
+    })
+  }, [agent?.id, bucket?.activeRunId, activeSnapshot])
 
   const start = useCallback(
     (args: { config: CouncilConfig; userTask: string; plan: CouncilPlan }) => {
@@ -85,7 +101,7 @@ export function useCouncilStream(): {
       abortRef.current = ac
 
       const runId = newRunId()
-      setState({ ...INITIAL, isRunning: true })
+      setState({ ...INITIAL, isRunning: true, activeRunId: runId })
 
       void (async () => {
         const collectedEvents: CouncilEvent[] = []
@@ -138,7 +154,6 @@ export function useCouncilStream(): {
             error: errMessage,
           }))
         } finally {
-          // Persist whatever we got — even partial failures are useful to revisit.
           if (!ac.signal.aborted && agent) {
             const snapshot: CouncilSnapshot = {
               id: runId,
@@ -150,25 +165,61 @@ export function useCouncilStream(): {
               totalCostCents,
               error: errMessage,
             }
-            setSnapshot(agent.id, snapshot)
+            addRun(agent.id, snapshot)
+            // Bump the hydration key so the active-run effect doesn't fight us
+            // by re-rendering from the now-persisted snapshot.
+            lastHydratedKey.current = `${agent.id}::${runId}`
             setState((prev) => ({
               ...prev,
-              snapshotTimestamp: snapshot.timestamp,
-              snapshotPlan: snapshot.plan,
-              snapshotTask: snapshot.userTask,
+              activeRunId: snapshot.id,
+              activeTimestamp: snapshot.timestamp,
+              activePlan: snapshot.plan,
+              activeTask: snapshot.userTask,
             }))
           }
         }
       })()
     },
-    [container, agent, setSnapshot],
+    [container, agent, addRun],
   )
 
-  const reset = useCallback(() => {
-    if (abortRef.current) abortRef.current.abort()
-    if (agent) clearSnapshot(agent.id)
-    setState(INITIAL)
-  }, [agent, clearSnapshot])
+  const selectRun = useCallback(
+    (runId: string) => {
+      if (!agent) return
+      if (abortRef.current) abortRef.current.abort()
+      setActiveRun(agent.id, runId)
+    },
+    [agent, setActiveRun],
+  )
 
-  return { state, start, reset }
+  const closeRun = useCallback(() => {
+    if (abortRef.current) abortRef.current.abort()
+    if (agent) setActiveRun(agent.id, null)
+    setState(INITIAL)
+  }, [agent, setActiveRun])
+
+  const deleteRun = useCallback(
+    (runId: string) => {
+      if (!agent) return
+      deleteRunStore(agent.id, runId)
+    },
+    [agent, deleteRunStore],
+  )
+
+  const clearHistory = useCallback(() => {
+    if (!agent) return
+    if (abortRef.current) abortRef.current.abort()
+    clearAllRuns(agent.id)
+    setState(INITIAL)
+  }, [agent, clearAllRuns])
+
+  return {
+    state,
+    runs: bucket?.runs ?? [],
+    start,
+    selectRun,
+    closeRun,
+    deleteRun,
+    clearHistory,
+  }
 }
