@@ -7,10 +7,11 @@ import {
 } from '@/domain/council'
 import { Model } from '@/domain/branded'
 import { useT } from '@/presentation/hooks/useT'
+import { useModels } from '@/presentation/hooks/useModels'
 import { Button } from '@/presentation/components/ui/button'
 import { Textarea } from '@/presentation/components/ui/textarea'
-import { Input } from '@/presentation/components/ui/input'
 import { Label } from '@/presentation/components/ui/label'
+import { ModelPicker } from '@/presentation/components/ModelPicker'
 
 type Props = Readonly<{
   disabled: boolean
@@ -19,9 +20,11 @@ type Props = Readonly<{
 
 export function CouncilSetup({ disabled, onStart }: Props) {
   const t = useT()
+  const models = useModels()
   const [task, setTask] = useState('')
   const [config, setConfig] = useState<CouncilConfig>(DEFAULT_COUNCIL_CONFIG)
 
+  const modelList = models.data?.models ?? []
   const estimatedCents = estimateCouncilCostCents(config)
   const isExpensive = estimatedCents >= COUNCIL_EXPENSIVE_THRESHOLD_CENTS
 
@@ -36,15 +39,20 @@ export function CouncilSetup({ disabled, onStart }: Props) {
     onStart({ config, userTask: task })
   }
 
-  const updateDrafter = (idx: number, value: string): void => {
+  const updateDrafter = (idx: number, slug: string): void => {
+    if (!slug) return
     const next = config.drafters.slice() as Array<ReturnType<typeof Model>>
-    if (!value) return
-    next[idx] = Model(value)
+    next[idx] = Model(slug)
     setConfig({ ...config, drafters: next })
   }
 
+  const updateChairman = (slug: string): void => {
+    if (!slug) return
+    setConfig({ ...config, chairman: Model(slug) })
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="space-y-1.5">
         <Label htmlFor="council-task">{t('council.taskLabel')}</Label>
         <Textarea
@@ -57,30 +65,31 @@ export function CouncilSetup({ disabled, onStart }: Props) {
         />
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         <Label>{t('council.draftersLabel')}</Label>
         {config.drafters.map((m, i) => (
-          <Input
-            key={i}
-            value={String(m)}
-            onChange={(e) => updateDrafter(i, e.target.value)}
-            disabled={disabled}
-            spellCheck={false}
-          />
+          <div key={i} className="rounded-lg border border-border bg-muted/20 p-3">
+            <div className="text-xs font-mono text-muted-foreground mb-2">
+              {t('council.drafter')} {(['A', 'B', 'C'] as const)[i] ?? '?'}
+            </div>
+            <ModelPicker
+              models={modelList}
+              value={String(m)}
+              onChange={(slug) => updateDrafter(i, slug)}
+            />
+          </div>
         ))}
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="council-chairman">{t('council.chairmanLabel')}</Label>
-        <Input
-          id="council-chairman"
-          value={String(config.chairman)}
-          onChange={(e) =>
-            e.target.value && setConfig({ ...config, chairman: Model(e.target.value) })
-          }
-          disabled={disabled}
-          spellCheck={false}
-        />
+      <div className="space-y-2">
+        <Label>{t('council.chairmanLabel')}</Label>
+        <div className="rounded-lg border border-border bg-muted/20 p-3">
+          <ModelPicker
+            models={modelList}
+            value={String(config.chairman)}
+            onChange={updateChairman}
+          />
+        </div>
       </div>
 
       <div className="text-sm text-muted-foreground">
