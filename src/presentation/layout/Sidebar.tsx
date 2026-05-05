@@ -7,6 +7,7 @@ const links: readonly { to: string; key: MessageKey }[] = [
   { to: '/agents', key: 'sidebar.agents' },
   { to: '/models', key: 'sidebar.models' },
   { to: '/chat', key: 'sidebar.chat' },
+  { to: '/council', key: 'sidebar.council' },
   { to: '/wallet', key: 'sidebar.wallet' },
   { to: '/transactions', key: 'sidebar.transactions' },
   { to: '/scraper/one-shot', key: 'sidebar.scraperOneshot' },

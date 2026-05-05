@@ -414,6 +414,33 @@ const EN = {
   'images.result': 'Result',
   'images.download': 'Download PNG',
 
+  // Sidebar (council)
+  'sidebar.council': 'Council',
+
+  // Council
+  'council.title': 'Council',
+  'council.subtitle': 'Three drafters, cross-critique, one chairman synthesizes the final answer.',
+  'council.taskLabel': 'Task',
+  'council.taskPlaceholder': 'What should the council answer?',
+  'council.draftersLabel': 'Drafter models (2–3)',
+  'council.chairmanLabel': 'Chairman model (synthesizer)',
+  'council.estimatedCost': 'Estimated cost: ~${cost} USD',
+  'council.expensiveWarning': '— this is a premium configuration.',
+  'council.expensiveConfirm': 'This council run is estimated at ~${cost} USD. Proceed?',
+  'council.startButton': 'Convene the Council',
+  'council.drafts': 'Drafts',
+  'council.drafter': 'Drafter',
+  'council.drafting': 'Drafting',
+  'council.draftFailed': 'Draft failed',
+  'council.critiques': 'Cross-critiques',
+  'council.critiqueBy': 'Critique by Drafter',
+  'council.synthesizing': 'Synthesizing…',
+  'council.finalAnswer': 'Final answer',
+  'council.synthesizedBy': 'Synthesized by',
+  'council.totalCost': 'Total cost: ${cost} USD',
+  'council.newRun': 'Start a new run',
+  'council.noAgent': 'Activate an agent first.',
+
 } as const
 
 type Messages = typeof EN
@@ -823,6 +850,33 @@ const ES: Record<MessageKey, string> = {
   'images.running': 'Ejecutando…',
   'images.result': 'Resultado',
   'images.download': 'Descargar PNG',
+
+  // Sidebar (council)
+  'sidebar.council': 'Concejo',
+
+  // Council
+  'council.title': 'Concejo',
+  'council.subtitle': 'Tres redactores, crítica cruzada, y un chairman sintetiza la respuesta final.',
+  'council.taskLabel': 'Tarea',
+  'council.taskPlaceholder': '¿Qué debería responder el concejo?',
+  'council.draftersLabel': 'Modelos redactores (2–3)',
+  'council.chairmanLabel': 'Modelo chairman (sintetizador)',
+  'council.estimatedCost': 'Costo estimado: ~${cost} USD',
+  'council.expensiveWarning': '— esta es una configuración premium.',
+  'council.expensiveConfirm': 'Esta corrida del concejo se estima en ~${cost} USD. ¿Continuar?',
+  'council.startButton': 'Convocar al Concejo',
+  'council.drafts': 'Borradores',
+  'council.drafter': 'Redactor',
+  'council.drafting': 'Redactando',
+  'council.draftFailed': 'Falló el borrador',
+  'council.critiques': 'Críticas cruzadas',
+  'council.critiqueBy': 'Crítica por Redactor',
+  'council.synthesizing': 'Sintetizando…',
+  'council.finalAnswer': 'Respuesta final',
+  'council.synthesizedBy': 'Sintetizado por',
+  'council.totalCost': 'Costo total: ${cost} USD',
+  'council.newRun': 'Nueva corrida',
+  'council.noAgent': 'Activá un agente primero.',
 
 }
 

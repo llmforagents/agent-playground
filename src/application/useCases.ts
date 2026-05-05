@@ -10,8 +10,12 @@ import type {
   ChatResponseWithMeta, ChatStreamChunk,
 } from '@/application/ports'
 import { runAgenticChat, type AgenticEvent, type RunAgenticParams } from '@/application/runAgenticChat'
+import { runCouncilChat, makeRestChatPort } from '@/application/runCouncilChat'
+import type { CouncilEvent } from '@/domain/councilEvents'
+import type { CouncilConfig } from '@/domain/council'
 import type { SdkConfig } from '@/infrastructure/sdk/sdkClient'
 import type { ChatMessage } from '@/domain/chat'
+import type { HistoryEntry } from '@/domain/history'
 import type {
   HealthzResponse, BalanceResponse, ModelsResponse,
   ChatCompletionRequest, TransactionsResponse,
@@ -65,6 +69,10 @@ export type UseCases = Readonly<{
       include_reasoning?: boolean
     }>,
   ): AsyncGenerator<AgenticEvent, void, void>
+  runCouncilChat(
+    agent: AgentId, key: ApiKey,
+    params: Readonly<{ config: CouncilConfig; userTask: string }>,
+  ): AsyncGenerator<CouncilEvent, void, void>
 }>
 
 export function makeUseCases(deps: Deps): UseCases {
@@ -240,6 +248,48 @@ export function makeUseCases(deps: Deps): UseCases {
         },
         runParams,
       )
+    },
+
+    async *runCouncilChat(agent, key, params) {
+      const chat = makeRestChatPort(deps.rest, key)
+      const requestId = RequestId(deps.newRequestId())
+      const startedAt = deps.now()
+      let totalCostCents = 0
+      let finalAnswer: string | undefined
+      let lastError: { kind: string; message?: string } | undefined
+
+      try {
+        for await (const event of runCouncilChat({ chat }, params)) {
+          if (event.kind === 'council_done') {
+            totalCostCents = event.totalCostCents
+            finalAnswer = event.finalAnswer
+          } else if (event.kind === 'council_failed') {
+            totalCostCents = event.partialCostCents
+            lastError = { kind: event.error.kind }
+          }
+          yield event
+        }
+      } finally {
+        const durationMs = Date.now() - startedAt.getTime()
+        const entry: HistoryEntry = {
+          id: requestId,
+          agentId: agent,
+          timestamp: startedAt,
+          kind: 'rest',
+          endpoint: 'POST /v1/chat/completions [council]',
+          request: {
+            chairman: String(params.config.chairman),
+            drafters: params.config.drafters.map(String),
+            userTask: params.userTask,
+          },
+          response: lastError
+            ? Err({ kind: 'unknown', message: lastError.kind, raw: null } as RestError)
+            : Ok({ finalAnswer: finalAnswer ?? '' }),
+          ...(totalCostCents > 0 ? { costCents: UsdCents(totalCostCents) } : {}),
+          durationMs,
+        }
+        await deps.history.add(entry)
+      }
     },
   }
 }
