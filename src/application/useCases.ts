@@ -285,7 +285,11 @@ export function makeUseCases(deps: Deps): UseCases {
           response: lastError
             ? Err({ kind: 'unknown', message: lastError.kind, raw: null } as RestError)
             : Ok({ finalAnswer: finalAnswer ?? '' }),
-          ...(totalCostCents > 0 ? { costCents: UsdCents(totalCostCents) } : {}),
+          // Council sums sub-cent fractions across 7 calls; UsdCents requires
+          // an integer, so round to the nearest cent for history persistence.
+          ...(totalCostCents > 0
+            ? { costCents: UsdCents(Math.max(0, Math.round(totalCostCents))) }
+            : {}),
           durationMs,
         }
         await deps.history.add(entry)
