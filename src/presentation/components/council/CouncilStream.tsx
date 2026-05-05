@@ -270,7 +270,7 @@ export function CouncilStream({ events }: Props) {
                       <details
                         key={`${b.round}-${b.slot}`}
                         className="rounded-lg border border-border bg-card p-3 text-sm"
-                        open={!b.done}
+                        open
                       >
                         <summary className="cursor-pointer font-medium flex items-center gap-2">
                           <span>
