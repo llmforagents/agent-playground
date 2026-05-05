@@ -401,10 +401,15 @@ export async function* runCouncilChat(
   const synthesisDuration = Date.now() - synthesisT0
   totalCostCents += synthesisCost
 
+  // Split chairman output into final answer and reasoning by the marker.
+  const { answer: finalAnswerText, reasoning: chairmanReasoning } =
+    splitChairmanOutput(synthesisContent)
+
   yield {
     kind: 'synthesis_done',
     model: config.chairman,
-    content: synthesisContent,
+    content: finalAnswerText,
+    reasoning: chairmanReasoning,
     costCents: synthesisCost,
     durationMs: synthesisDuration,
   }
@@ -412,10 +417,25 @@ export async function* runCouncilChat(
   const totalDurationMs = Date.now() - startTime
   yield {
     kind: 'council_done',
-    finalAnswer: synthesisContent,
+    finalAnswer: finalAnswerText,
     totalCostCents,
     totalDurationMs,
   }
 
-  return Ok({ finalAnswer: synthesisContent })
+  return Ok({ finalAnswer: finalAnswerText })
+}
+
+const REASONING_MARKER = '===COUNCIL_REASONING==='
+
+/**
+ * Splits the chairman's raw output into the user-facing answer and
+ * the reasoning section. If the marker is missing (some models drift),
+ * returns the full text as the answer and `null` for reasoning.
+ */
+export function splitChairmanOutput(raw: string): { answer: string; reasoning: string | null } {
+  const idx = raw.indexOf(REASONING_MARKER)
+  if (idx < 0) return { answer: raw.trim(), reasoning: null }
+  const answer = raw.slice(0, idx).trim()
+  const reasoning = raw.slice(idx + REASONING_MARKER.length).trim()
+  return { answer, reasoning: reasoning || null }
 }

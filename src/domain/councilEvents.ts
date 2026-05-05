@@ -73,6 +73,7 @@ export type CouncilEvent =
       kind: 'synthesis_done'
       model: Model
       content: string
+      reasoning: string | null
       costCents: number
       durationMs: number
     }>

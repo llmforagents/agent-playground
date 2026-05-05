@@ -1,8 +1,12 @@
+import { useState } from 'react'
 import { useT } from '@/presentation/hooks/useT'
 import type { CouncilEvent } from '@/domain/councilEvents'
 import type { DrafterSlot } from '@/domain/council'
 import { describeError } from '@/domain/errors'
 import { Card } from '@/presentation/components/ui/card'
+import { Button } from '@/presentation/components/ui/button'
+
+const REASONING_MARKER = '===COUNCIL_REASONING==='
 
 type Props = Readonly<{ events: ReadonlyArray<CouncilEvent> }>
 
@@ -32,6 +36,8 @@ type DebateBucket = {
 type SynthesisBucket = {
   model: string | null
   text: string
+  reasoning: string
+  reasoningStarted: boolean
   done: boolean
   costCents: number | null
   durationMs: number | null
@@ -161,18 +167,36 @@ function reduceEvents(events: ReadonlyArray<CouncilEvent>): Reduced {
         r.synthesis = {
           model: String(e.model),
           text: '',
+          reasoning: '',
+          reasoningStarted: false,
           done: false,
           costCents: null,
           durationMs: null,
         }
         break
       case 'synthesis_delta':
-        if (r.synthesis) r.synthesis.text += e.text
+        if (r.synthesis) {
+          if (r.synthesis.reasoningStarted) {
+            r.synthesis.reasoning += e.text
+          } else {
+            const combined = r.synthesis.text + e.text
+            const idx = combined.indexOf(REASONING_MARKER)
+            if (idx >= 0) {
+              r.synthesis.text = combined.slice(0, idx).trimEnd()
+              r.synthesis.reasoning = combined.slice(idx + REASONING_MARKER.length).trimStart()
+              r.synthesis.reasoningStarted = true
+            } else {
+              r.synthesis.text = combined
+            }
+          }
+        }
         break
       case 'synthesis_done':
         r.synthesis = {
           model: String(e.model),
           text: e.content || (r.synthesis?.text ?? ''),
+          reasoning: e.reasoning ?? r.synthesis?.reasoning ?? '',
+          reasoningStarted: Boolean(e.reasoning) || Boolean(r.synthesis?.reasoningStarted),
           done: true,
           costCents: e.costCents,
           durationMs: e.durationMs,
@@ -314,26 +338,52 @@ export function CouncilStream({ events }: Props) {
       ) : null}
 
       {/* 3. SYNTHESIS / FINAL ANSWER */}
-      {r.synthesis ? (
-        <Card className="p-5 border-2 border-primary">
-          <h2 className="text-lg font-bold mb-3">{t('council.finalAnswer')}</h2>
-          <pre className="whitespace-pre-wrap text-sm font-sans">
-            {r.synthesis.text}
-            {!r.synthesis.done ? <span className="opacity-50">▌</span> : null}
-          </pre>
-          {r.synthesis.done && r.synthesis.costCents !== null ? (
-            <div className="text-xs text-muted-foreground mt-4">
-              {t('council.synthesizedBy')}{' '}
-              <span className="font-mono">{r.synthesis.model}</span> · $
-              {(r.synthesis.costCents / 100).toFixed(4)} · {r.synthesis.durationMs}ms
-            </div>
-          ) : (
-            <div className="text-xs text-muted-foreground mt-4 animate-pulse">
-              {t('council.synthesizing')}…
-            </div>
-          )}
-        </Card>
-      ) : null}
+      {r.synthesis ? <SynthesisCard bucket={r.synthesis} /> : null}
     </div>
+  )
+}
+
+function SynthesisCard({ bucket }: { bucket: SynthesisBucket }) {
+  const t = useT()
+  const [showReasoning, setShowReasoning] = useState(false)
+  const hasReasoning = bucket.reasoning.trim().length > 0
+  return (
+    <Card className="p-5 border-2 border-primary">
+      <h2 className="text-lg font-bold mb-3">{t('council.finalAnswer')}</h2>
+      <pre className="whitespace-pre-wrap text-sm font-sans">
+        {bucket.text}
+        {!bucket.done ? <span className="opacity-50">▌</span> : null}
+      </pre>
+      {bucket.done && bucket.costCents !== null ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="text-xs text-muted-foreground">
+            {t('council.synthesizedBy')}{' '}
+            <span className="font-mono">{bucket.model}</span> · $
+            {(bucket.costCents / 100).toFixed(4)} · {bucket.durationMs}ms
+          </div>
+          {hasReasoning ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowReasoning((v) => !v)}
+            >
+              {showReasoning ? t('council.hideReasoning') : t('council.viewReasoning')}
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground mt-4 animate-pulse">
+          {t('council.synthesizing')}…
+        </div>
+      )}
+      {bucket.done && hasReasoning && showReasoning ? (
+        <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4">
+          <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+            {t('council.reasoningTitle')}
+          </div>
+          <pre className="whitespace-pre-wrap text-sm font-sans">{bucket.reasoning}</pre>
+        </div>
+      ) : null}
+    </Card>
   )
 }

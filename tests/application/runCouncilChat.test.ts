@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   runCouncilChat,
+  splitChairmanOutput,
   type ChatPort,
   type ChatPortChunk,
   type ChatPortArgs,
@@ -175,4 +176,25 @@ describe('runCouncilChat', () => {
   // Use Err just to keep import warnings quiet in case the test file gets pruned later.
   void Err
   void Ok
+})
+
+describe('splitChairmanOutput', () => {
+  it('returns full text as answer and null reasoning when marker is missing', () => {
+    const r = splitChairmanOutput('Just an answer with no marker.')
+    expect(r.answer).toBe('Just an answer with no marker.')
+    expect(r.reasoning).toBeNull()
+  })
+
+  it('splits answer and reasoning around the marker', () => {
+    const raw = 'The capital is Lima.\n\n===COUNCIL_REASONING===\n\nDrafter A and C agreed; B was off-topic.'
+    const r = splitChairmanOutput(raw)
+    expect(r.answer).toBe('The capital is Lima.')
+    expect(r.reasoning).toBe('Drafter A and C agreed; B was off-topic.')
+  })
+
+  it('returns null reasoning when marker is present but reasoning section is empty', () => {
+    const r = splitChairmanOutput('The answer.\n===COUNCIL_REASONING===\n   ')
+    expect(r.answer).toBe('The answer.')
+    expect(r.reasoning).toBeNull()
+  })
 })

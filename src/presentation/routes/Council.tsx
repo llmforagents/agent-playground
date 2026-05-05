@@ -60,8 +60,8 @@ export function Council() {
           ) : null}
 
           <CouncilStream events={state.events} />
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <Button variant="outline" size="sm" onClick={closeRun} disabled={state.isRunning}>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <Button onClick={closeRun} disabled={state.isRunning}>
               {t('council.newRun')}
             </Button>
             {state.totalCostCents > 0 ? (

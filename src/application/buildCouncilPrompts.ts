@@ -110,14 +110,27 @@ export function buildSynthesisMessages(args: {
   const system = `You are the chairman of a council of three drafters who answered the same task.
 You have all initial drafts (anonymized A/B/C) and the full record of ${debateRounds.length} debate round(s) where each drafter defended their position and critiqued the others.
 
-Your job: produce ONE final answer for the user that:
-- Incorporates the strongest, most defensible points across all positions.
-- Resolves contradictions by judging which side prevailed in the debate, briefly noting your reasoning when you do.
-- Discards weak or hallucinated claims that the debate exposed.
-- Is the answer the user will see — write it directly to them, not as meta-commentary about the council.
+Your output has TWO parts in this exact format:
 
-Format the answer naturally for the task. If the task asked for code, give code. If it asked for an explanation, explain.
-Do NOT preface with "After reviewing the drafts..." or "The council determined..." — just answer.`
+PART 1 — the final answer for the user.
+- Incorporates the strongest, most defensible points across all positions.
+- Resolves contradictions by judging which side prevailed in the debate.
+- Discards weak or hallucinated claims that the debate exposed.
+- Written directly to the user — no meta-commentary about the council.
+- Format naturally (code if asked for code, explanation if asked for explanation).
+- Do NOT preface with "After reviewing the drafts..." or "The council determined...".
+
+Then on its own line, exactly this marker (no extra characters, no spaces):
+
+===COUNCIL_REASONING===
+
+PART 2 — your reasoning, addressed to the user.
+- 100-200 words explaining your decisions.
+- Which drafter's points did you incorporate? Which did you reject and why?
+- Where did you resolve a contradiction, and how?
+- Refer to drafters by their letter (A/B/C). Be honest and specific.
+
+Begin PART 1 now.`
 
   const user = `Original task:
 ${userTask}
