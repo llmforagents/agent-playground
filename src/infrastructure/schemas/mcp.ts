@@ -6,8 +6,9 @@ const UrlField = z.string().url().max(2048)
 
 export const FetchHtmlParamsSchema = z.object({
   url: UrlField,
-  timeout_ms: z.number().int().min(1000).max(30000).optional(),
+  timeout_ms: z.number().int().min(1000).max(10000).optional(),
   proxy_tier: ProxyTierEnum,
+  auto_fallback: z.boolean().optional(),
 })
 
 export const MarkdownParamsSchema = z.object({

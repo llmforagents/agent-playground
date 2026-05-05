@@ -213,7 +213,7 @@ const EN = {
   'chat.maxIterationsError': 'Reached max iterations (5) without a final answer. Try a simpler question or disable tools.',
   'chat.emptyResponse': 'The model returned no response (no text, no tool calls). This sometimes happens with smaller models on ambiguous prompts. Try rephrasing or use a more capable model.',
   'chat.abortedToolFailed': 'Stopped after the tool "{tool}" failed ({detail}). No further model calls were made, so no extra tokens were charged. Rephrase and try again.',
-  'chat.abortedCap': 'Stopped at the 3-tool-call safety cap while running "{tool}". No further model calls were made. Rephrase or disable tools and try again.',
+  'chat.abortedCap': 'Stopped at the 5-tool-call safety cap while running "{tool}". No further model calls were made. Rephrase or disable tools and try again.',
   'chat.persistFull': 'Could not save chat — local storage is full. Use Clear to free space.',
 
   // Reasoning
@@ -367,7 +367,7 @@ const EN = {
   'guide.step4Title': 'Fund the wallet from an external account',
   'guide.step4Body': 'Send USDT or USDC on the selected chain to the address. Minimums around $1 recommended — dust might be ignored by the indexer. After the transfer confirms on-chain, click Watch for deposit in Wallet — the dashboard polls balance every 8 seconds and shows a toast when the credit lands.',
   'guide.step5Title': 'Test chat completions',
-  'guide.step5Body': 'Chat uses google/gemini-2.5-flash-lite by default. Switching to another model triggers a confirmation dialog. With Tools on the agent can invoke MCP tools automatically for live data (search, scraping). Click View tools to see what\u2019s available. Streaming disables during agentic (tools) mode, re-enables when you toggle Tools off.',
+  'guide.step5Body': 'Chat uses deepseek/deepseek-v3.2 by default. Switching to another model triggers a confirmation dialog. With Tools on the agent can invoke MCP tools automatically for live data (search, scraping). Click View tools to see what\u2019s available. Streaming disables during agentic (tools) mode, re-enables when you toggle Tools off.',
   'guide.step5Cta': 'Go to Chat',
   'guide.step6Title': 'Use the scraper and search APIs directly',
   'guide.step6Body': 'Scraper (one-shot) runs a single browser call (fetch HTML, markdown, screenshot, PDF, links, extract). Scraper (sessions) keeps a persistent browser session for multi-step workflows. Search hits Google (web / news / maps) or batches up to 100 queries in one call.',
@@ -623,7 +623,7 @@ const ES: Record<MessageKey, string> = {
   'chat.maxIterationsError': 'Llegamos al máximo de iteraciones (5) sin respuesta final. Probá una pregunta más simple o desactivá las tools.',
   'chat.emptyResponse': 'El modelo no devolvió respuesta (ni texto ni tool calls). A veces pasa con modelos chicos ante prompts ambiguos. Reformulá la pregunta o probá un modelo más capaz.',
   'chat.abortedToolFailed': 'Detenido porque la tool "{tool}" falló ({detail}). No se hicieron más llamadas al modelo, así que no se cobraron tokens extra. Reformulá y probá de nuevo.',
-  'chat.abortedCap': 'Detenido al límite de seguridad de 3 tool-calls ejecutando "{tool}". No se hicieron más llamadas al modelo. Reformulá o desactivá las tools y probá de nuevo.',
+  'chat.abortedCap': 'Detenido al límite de seguridad de 5 tool-calls ejecutando "{tool}". No se hicieron más llamadas al modelo. Reformulá o desactivá las tools y probá de nuevo.',
   'chat.persistFull': 'No se pudo guardar el chat — el almacenamiento local está lleno. Usá Clear para liberar espacio.',
 
   // Reasoning
@@ -777,7 +777,7 @@ const ES: Record<MessageKey, string> = {
   'guide.step4Title': 'Fondear la wallet desde una cuenta externa',
   'guide.step4Body': 'Enviá USDT o USDC en la cadena elegida a la dirección. Mínimos cerca de $1 recomendados — polvo puede ser ignorado por el indexer. Tras la confirmación on-chain, clickeá "Esperar depósito" en Wallet — el dashboard pingea el saldo cada 8 segundos y muestra un toast cuando acredita.',
   'guide.step5Title': 'Probar chat completions',
-  'guide.step5Body': 'Chat usa google/gemini-2.5-flash-lite por default. Cambiar a otro modelo abre un diálogo de confirmación. Con Tools on el agente puede invocar tools MCP automáticamente para datos en vivo (búsqueda, scraping). Clickeá "Ver tools" para ver qué hay. El streaming se desactiva en modo agéntico y se reactiva si apagás Tools.',
+  'guide.step5Body': 'Chat usa deepseek/deepseek-v3.2 por default. Cambiar a otro modelo abre un diálogo de confirmación. Con Tools on el agente puede invocar tools MCP automáticamente para datos en vivo (búsqueda, scraping). Clickeá "Ver tools" para ver qué hay. El streaming se desactiva en modo agéntico y se reactiva si apagás Tools.',
   'guide.step5Cta': 'Ir a Chat',
   'guide.step6Title': 'Usar las APIs de scraper y search directo',
   'guide.step6Body': 'Scraper (one-shot) ejecuta una sola llamada al navegador (fetch HTML, markdown, screenshot, PDF, links, extract). Scraper (sesiones) mantiene una sesión persistente para flujos multi-paso. Search pega a Google (web / noticias / mapas) o batchea hasta 100 queries en un call.',

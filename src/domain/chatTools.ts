@@ -68,6 +68,35 @@ export const CHAT_TOOLS: readonly ChatToolDef[] = [
     },
   },
   {
+    mcpName: 'google_batch_search',
+    category: 'search',
+    costPerCall: '$0.0012 × N',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'google_batch_search',
+        description: 'Run 2–100 Google web searches in PARALLEL in a single tool call. Use this whenever you need to look up several independent things at once (e.g. comparing multiple products, fetching facts about several people/places, or researching different angles of one question) — it is much faster than calling google_search several times sequentially. Each query is billed at the google_search rate.',
+        parameters: {
+          type: 'object',
+          properties: {
+            queries: {
+              type: 'array',
+              minItems: 1,
+              maxItems: 100,
+              description: 'List of independent search queries to run in parallel. Each item has the same shape as google_search params.',
+              items: {
+                type: 'object',
+                properties: SEARCH_COMMON,
+                required: ['q'],
+              },
+            },
+          },
+          required: ['queries'],
+        },
+      },
+    },
+  },
+  {
     mcpName: 'fetch_html',
     category: 'scraper',
     costPerCall: '$0.0007',
@@ -75,12 +104,13 @@ export const CHAT_TOOLS: readonly ChatToolDef[] = [
       type: 'function',
       function: {
         name: 'fetch_html',
-        description: 'Fetch the full HTML of a given URL. Prefer `markdown` for readable content; use this only when raw HTML is needed.',
+        description: 'Fetch the full HTML of a given URL. Prefer `markdown` for readable content; use this only when raw HTML is needed. Set `auto_fallback: true` for sites that may block or rate-limit datacenter requests (news, ecommerce, social, financial dashboards) — the tool will then transparently retry with a datacenter and residential proxy if the direct fetch fails.',
         parameters: {
           type: 'object',
           properties: {
             url: { type: 'string', description: 'The URL to fetch' },
-            proxy_tier: { type: 'string', enum: ['none', 'datacenter', 'residential'], description: 'Proxy tier, default "none"' },
+            proxy_tier: { type: 'string', enum: ['none', 'datacenter', 'residential'], description: 'Starting proxy tier. Default "none". With auto_fallback=true the tool may escalate to higher tiers; without it, the requested tier is honored exactly.' },
+            auto_fallback: { type: 'boolean', description: 'If true and the requested tier fails, retry with higher tiers (datacenter → residential). Default false. You are billed at the tier that actually returned the page.' },
           },
           required: ['url'],
         },
