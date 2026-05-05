@@ -178,6 +178,62 @@ describe('runCouncilChat', () => {
   void Ok
 })
 
+describe('runCouncilChat — billed total via balance diff', () => {
+  it('overrides totalCostCents with balanceBefore - balanceAfter when getBalanceCents is provided', async () => {
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      const content = isSynth ? 'final\n===COUNCIL_REASONING===\nbecause' : isDeb ? 'd' : 'dr'
+      return singleChunk(content, 1) // SDK reports 1 cent per call
+    })
+    // 10 calls × 1 cent = 10 SDK cents.  But the backend (per fixture) charged 25.
+    let calls = 0
+    const getBalanceCents = async (): Promise<number> => {
+      calls++
+      if (calls === 1) return 100 // before
+      return 75                    // after — backend billed 25 cents
+    }
+
+    const events = await collect(
+      runCouncilChat({ chat, getBalanceCents }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
+    )
+    const done = events.find((e) => e.kind === 'council_done')
+    expect(done && 'totalCostCents' in done && done.totalCostCents).toBe(25)
+  })
+
+  it('falls back to SDK sum when getBalanceCents is not provided', async () => {
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      const content = isSynth ? 'final\n===COUNCIL_REASONING===\nbecause' : isDeb ? 'd' : 'dr'
+      return singleChunk(content, 1)
+    })
+    const events = await collect(
+      runCouncilChat({ chat }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
+    )
+    const done = events.find((e) => e.kind === 'council_done')
+    // Lite default: 3 drafts + 2*3 debates + 1 synth = 10 calls × 1 cent
+    expect(done && 'totalCostCents' in done && done.totalCostCents).toBe(10)
+  })
+
+  it('falls back to SDK sum if the balance probe throws', async () => {
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      const content = isSynth ? 'f\n===COUNCIL_REASONING===\nx' : isDeb ? 'd' : 'dr'
+      return singleChunk(content, 1)
+    })
+    const getBalanceCents = async () => {
+      throw new Error('network down')
+    }
+    const events = await collect(
+      runCouncilChat({ chat, getBalanceCents }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
+    )
+    const done = events.find((e) => e.kind === 'council_done')
+    expect(done && 'totalCostCents' in done && done.totalCostCents).toBe(10)
+  })
+})
+
 describe('splitChairmanOutput', () => {
   it('returns full text as answer and null reasoning when marker is missing', () => {
     const r = splitChairmanOutput('Just an answer with no marker.')

@@ -252,6 +252,10 @@ export function makeUseCases(deps: Deps): UseCases {
 
     async *runCouncilChat(agent, key, params) {
       const chat = makeRestChatPort(deps.rest, key)
+      const getBalanceCents = async (): Promise<number | null> => {
+        const r = await deps.rest.getBalance(key)
+        return r.ok ? r.value.availableUsdCents : null
+      }
       const requestId = RequestId(deps.newRequestId())
       const startedAt = deps.now()
       let totalCostCents = 0
@@ -259,7 +263,7 @@ export function makeUseCases(deps: Deps): UseCases {
       let lastError: { kind: string; message?: string } | undefined
 
       try {
-        for await (const event of runCouncilChat({ chat }, params)) {
+        for await (const event of runCouncilChat({ chat, getBalanceCents }, params)) {
           if (event.kind === 'council_done') {
             totalCostCents = event.totalCostCents
             finalAnswer = event.finalAnswer

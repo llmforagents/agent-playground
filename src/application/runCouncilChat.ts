@@ -99,6 +99,18 @@ export type RunCouncilArgs = Readonly<{
   signal?: AbortSignal
 }>
 
+export type RunCouncilDeps = Readonly<{
+  chat: ChatPort
+  /**
+   * Returns the agent's available balance in USD cents. Optional.
+   * When provided, runCouncilChat samples it before and after the run
+   * and reports the difference as the authoritative total cost — this
+   * captures backend per-call minimums, fee percentages and any markup
+   * that the SDK's per-chunk usage doesn't surface.
+   */
+  getBalanceCents?: () => Promise<number | null>
+}>
+
 /**
  * Helper: collect a streaming completion into a final {content, costCents},
  * forwarding deltas to the caller via the provided onDelta callback.
@@ -123,10 +135,10 @@ async function streamOne(
 }
 
 export async function* runCouncilChat(
-  deps: Readonly<{ chat: ChatPort }>,
+  deps: RunCouncilDeps,
   args: RunCouncilArgs,
 ): AsyncGenerator<CouncilEvent, Result<{ finalAnswer: string }, AppError>, void> {
-  const { chat } = deps
+  const { chat, getBalanceCents } = deps
   const { config, userTask, signal } = args
 
   if (config.drafters.length < MIN_DRAFTERS || config.drafters.length > MAX_DRAFTERS) {
@@ -150,6 +162,12 @@ export async function* runCouncilChat(
 
   const startTime = Date.now()
   let totalCostCents = 0
+
+  // Sample the agent's balance before the run so we can later report
+  // the authoritative billed cost (= balanceBefore - balanceAfter).
+  // The per-chunk SDK costs ignore backend minimums and fees, so this
+  // is the only reliable total.
+  const balanceBefore: number | null = getBalanceCents ? await getBalanceCents().catch(() => null) : null
 
   yield {
     kind: 'council_started',
@@ -428,10 +446,23 @@ export async function* runCouncilChat(
   }
 
   const totalDurationMs = Date.now() - startTime
+
+  // Override SDK-summed total with billed total when we can sample the balance.
+  // Backend applies per-call minimums and fees that don't surface in the
+  // per-chunk usage data, so the SDK sum is consistently under-reported.
+  let billedTotalCents = totalCostCents
+  if (balanceBefore !== null && getBalanceCents) {
+    const balanceAfter = await getBalanceCents().catch(() => null)
+    if (balanceAfter !== null) {
+      const diff = balanceBefore - balanceAfter
+      if (diff >= 0) billedTotalCents = diff
+    }
+  }
+
   yield {
     kind: 'council_done',
     finalAnswer: finalAnswerText,
-    totalCostCents,
+    totalCostCents: billedTotalCents,
     totalDurationMs,
   }
 
