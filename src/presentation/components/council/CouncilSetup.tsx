@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import {
   type CouncilConfig,
+  type CouncilPlan,
   COUNCIL_EXPENSIVE_THRESHOLD_CENTS,
-  DEFAULT_COUNCIL_CONFIG,
+  COUNCIL_PLANS,
+  COUNCIL_PLAN_ORDER,
+  DEFAULT_COUNCIL_PLAN,
   estimateCouncilCostCents,
 } from '@/domain/council'
 import { Model } from '@/domain/branded'
@@ -11,22 +14,42 @@ import { useModels } from '@/presentation/hooks/useModels'
 import { Button } from '@/presentation/components/ui/button'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { Label } from '@/presentation/components/ui/label'
+import { Tabs, TabsList, TabsTrigger } from '@/presentation/components/ui/tabs'
 import { ModelPicker } from '@/presentation/components/ModelPicker'
+import type { MessageKey } from '@/domain/i18n'
 
 type Props = Readonly<{
   disabled: boolean
   onStart: (args: { config: CouncilConfig; userTask: string }) => void
 }>
 
+const PLAN_LABEL_KEY: Record<CouncilPlan, MessageKey> = {
+  lite: 'council.planLite',
+  pro: 'council.planPro',
+  power: 'council.planPower',
+}
+
+const PLAN_HINT_KEY: Record<CouncilPlan, MessageKey> = {
+  lite: 'council.planLiteHint',
+  pro: 'council.planProHint',
+  power: 'council.planPowerHint',
+}
+
 export function CouncilSetup({ disabled, onStart }: Props) {
   const t = useT()
   const models = useModels()
   const [task, setTask] = useState('')
-  const [config, setConfig] = useState<CouncilConfig>(DEFAULT_COUNCIL_CONFIG)
+  const [plan, setPlan] = useState<CouncilPlan>(DEFAULT_COUNCIL_PLAN)
+  const [config, setConfig] = useState<CouncilConfig>(COUNCIL_PLANS[DEFAULT_COUNCIL_PLAN])
 
   const modelList = models.data?.models ?? []
   const estimatedCents = estimateCouncilCostCents(config)
   const isExpensive = estimatedCents >= COUNCIL_EXPENSIVE_THRESHOLD_CENTS
+
+  const selectPlan = (next: CouncilPlan): void => {
+    setPlan(next)
+    setConfig(COUNCIL_PLANS[next])
+  }
 
   const handleStart = (): void => {
     if (!task.trim()) return
@@ -53,6 +76,20 @@ export function CouncilSetup({ disabled, onStart }: Props) {
 
   return (
     <div className="space-y-5">
+      <div className="space-y-1.5">
+        <Label>{t('council.planLabel')}</Label>
+        <Tabs value={plan} onValueChange={(v) => selectPlan(v as CouncilPlan)}>
+          <TabsList className="w-full grid grid-cols-3">
+            {COUNCIL_PLAN_ORDER.map((p) => (
+              <TabsTrigger key={p} value={p} disabled={disabled} className="flex flex-col items-center gap-0.5 py-2">
+                <span className="font-medium">{t(PLAN_LABEL_KEY[p])}</span>
+                <span className="text-[10px] text-muted-foreground">{t(PLAN_HINT_KEY[p])}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
+
       <div className="space-y-1.5">
         <Label htmlFor="council-task">{t('council.taskLabel')}</Label>
         <Textarea

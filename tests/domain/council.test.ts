@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   COUNCIL_EXPENSIVE_THRESHOLD_CENTS,
+  COUNCIL_PLANS,
+  COUNCIL_PLAN_ORDER,
   DEFAULT_COUNCIL_CONFIG,
+  DEFAULT_COUNCIL_PLAN,
   DRAFTER_SLOTS,
   MAX_DRAFTERS,
   MIN_DRAFTERS,
@@ -49,6 +52,32 @@ describe('domain/council', () => {
     // 3 premium drafts (8) + 3 premium critiques (8) + 1 premium synth (15) = 47
     // Doesn't quite hit 50, but a 4-premium config would.
     expect(cents).toBeGreaterThan(40)
+  })
+
+  it('COUNCIL_PLANS exposes lite/pro/power; DEFAULT is lite', () => {
+    expect(COUNCIL_PLAN_ORDER).toEqual(['lite', 'pro', 'power'])
+    expect(DEFAULT_COUNCIL_PLAN).toBe('lite')
+    expect(COUNCIL_PLANS.lite).toEqual(DEFAULT_COUNCIL_CONFIG)
+    expect(COUNCIL_PLANS.power.drafters).toHaveLength(3)
+    expect(String(COUNCIL_PLANS.power.chairman)).toContain('opus')
+  })
+
+  it('Power plan trips the expensive threshold; Lite and Pro do not', () => {
+    expect(estimateCouncilCostCents(COUNCIL_PLANS.lite)).toBeLessThan(COUNCIL_EXPENSIVE_THRESHOLD_CENTS)
+    expect(estimateCouncilCostCents(COUNCIL_PLANS.pro)).toBeLessThan(COUNCIL_EXPENSIVE_THRESHOLD_CENTS)
+    expect(estimateCouncilCostCents(COUNCIL_PLANS.power)).toBeGreaterThanOrEqual(COUNCIL_EXPENSIVE_THRESHOLD_CENTS)
+  })
+
+  it('isPremium heuristic matches new model families', () => {
+    // gpt-5.x premium, gpt-5 (no version) not premium per heuristic
+    const gpt5Lite: CouncilConfig = { ...COUNCIL_PLANS.lite, chairman: Model('openai/gpt-5') }
+    const gpt5Premium: CouncilConfig = { ...COUNCIL_PLANS.lite, chairman: Model('openai/gpt-5.2') }
+    expect(estimateCouncilCostCents(gpt5Lite)).toBeLessThan(estimateCouncilCostCents(gpt5Premium))
+
+    // gemini-2.5-pro is premium, gemini-2.5-flash is not
+    const flashChair: CouncilConfig = { ...COUNCIL_PLANS.lite, chairman: Model('google/gemini-2.5-flash') }
+    const proChair: CouncilConfig = { ...COUNCIL_PLANS.lite, chairman: Model('google/gemini-2.5-pro') }
+    expect(estimateCouncilCostCents(flashChair)).toBeLessThan(estimateCouncilCostCents(proChair))
   })
 
   it('estimateCouncilCostCents distinguishes lite vs premium per slot', () => {
