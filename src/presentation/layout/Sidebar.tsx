@@ -30,7 +30,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
           end={l.to === '/'}
           onClick={onNavigate}
           className={({ isActive }) =>
-            `block px-3 py-2 rounded-lg text-sm transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-accent hover:text-accent-foreground'}`
+            `block px-3 py-2 rounded-lg text-sm font-bold transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-accent hover:text-accent-foreground'}`
           }
         >
           {t(l.key)}

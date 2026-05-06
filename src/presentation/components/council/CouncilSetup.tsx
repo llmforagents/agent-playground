@@ -174,7 +174,7 @@ export function CouncilSetup({ disabled, onStart }: Props) {
         </div>
       </div>
 
-      <div className="text-sm text-muted-foreground">
+      <div className="text-sm text-muted-foreground text-center">
         {t('council.estimatedCost', { cost: (estimatedCents / 100).toFixed(3) })}
         {isExpensive ? (
           <span className="ml-2 text-destructive font-medium">
