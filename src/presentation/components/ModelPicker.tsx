@@ -70,8 +70,8 @@ export function ModelPicker({ models, value, onChange }: Props) {
   return (
     <>
       <div ref={rootRef} className="flex items-center gap-3 flex-wrap flex-1 min-w-0 relative">
-        <div className="flex items-center gap-2 min-w-0 max-w-[18rem]">
-          <span className="font-medium truncate text-sm" title={selected?.slug ?? value}>
+        <div className="flex items-center gap-2 w-[18rem] flex-shrink-0">
+          <span className="font-medium truncate text-sm flex-1 min-w-0" title={selected?.slug ?? value}>
             {selectedLabel}
           </span>
           {isDefault && selected ? (

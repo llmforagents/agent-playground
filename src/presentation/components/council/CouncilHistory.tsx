@@ -1,4 +1,5 @@
 import { useT } from '@/presentation/hooks/useT'
+import { useAppStore } from '@/presentation/hooks/useAppStore'
 import type { CouncilSnapshot } from '@/presentation/hooks/useCouncilStore'
 import type { CouncilPlan } from '@/domain/council'
 
@@ -6,6 +7,23 @@ const PLAN_EMOJI: Record<CouncilPlan, string> = {
   lite: '🪶',
   pro: '⚡',
   power: '🚀',
+}
+
+/**
+ * Format a run's timestamp relative to today: "Hoy HH:MM" / "Ayer HH:MM"
+ * for the common case (multiple runs the same day all looked like "5/5"),
+ * fall back to "DD mmm HH:MM" for older runs.
+ */
+function formatRunTimestamp(iso: string, locale: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const startOfDay = (x: Date): number => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const dayDiff = Math.round((startOfDay(now) - startOfDay(d)) / (24 * 60 * 60 * 1000))
+  const time = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+  if (dayDiff === 0) return `${locale === 'es' ? 'Hoy' : 'Today'} ${time}`
+  if (dayDiff === 1) return `${locale === 'es' ? 'Ayer' : 'Yesterday'} ${time}`
+  const date = d.toLocaleDateString(locale, { day: '2-digit', month: 'short' })
+  return `${date} ${time}`
 }
 
 type Props = Readonly<{
@@ -18,6 +36,7 @@ type Props = Readonly<{
 
 export function CouncilHistory({ runs, activeRunId, onSelect, onDelete, onClearAll }: Props) {
   const t = useT()
+  const locale = useAppStore((s) => s.locale)
 
   if (runs.length === 0) return null
 
@@ -56,12 +75,7 @@ export function CouncilHistory({ runs, activeRunId, onSelect, onDelete, onClearA
               >
                 <span className="text-base flex-shrink-0">{PLAN_EMOJI[run.plan]}</span>
                 <span className="font-mono text-muted-foreground flex-shrink-0">
-                  {new Date(run.timestamp).toLocaleString(undefined, {
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {formatRunTimestamp(run.timestamp, locale)}
                 </span>
                 <span className="truncate flex-1 min-w-0" title={run.userTask}>
                   {run.userTask}

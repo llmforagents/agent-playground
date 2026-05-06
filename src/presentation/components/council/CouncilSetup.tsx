@@ -183,9 +183,11 @@ export function CouncilSetup({ disabled, onStart }: Props) {
         ) : null}
       </div>
 
-      <Button onClick={handleStart} disabled={disabled || !task.trim()} className="w-full sm:w-auto">
-        {t('council.startButton')}
-      </Button>
+      <div className="flex justify-center pt-1">
+        <Button onClick={handleStart} disabled={disabled || !task.trim()} className="px-8">
+          {t('council.startButton')}
+        </Button>
+      </div>
     </div>
   )
 }
