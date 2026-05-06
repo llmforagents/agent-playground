@@ -369,6 +369,10 @@ const EN = {
   'guide.step5Title': 'Test chat completions',
   'guide.step5Body': 'Chat uses deepseek/deepseek-v3.2 by default. Switching to another model triggers a confirmation dialog. With Tools on the agent can invoke MCP tools automatically for live data (search, scraping). Click View tools to see what\u2019s available. Streaming disables during agentic (tools) mode, re-enables when you toggle Tools off.',
   'guide.step5Cta': 'Go to Chat',
+  'guide.stepCouncilTitle': '🧑‍⚖️ Convene the Council for deeper reasoning',
+  'guide.stepCouncilBody':
+    'For nuanced or high-stakes questions, /council runs three drafter models in parallel, has them critique each other anonymously across N debate rounds (default 2), then a chairman synthesises the final answer and explains its decisions. Pick a plan tab — Lite (~$0.01), Pro (~$0.20) or Power (~$0.60) — adjust the rounds slider, write your task and convene. Each plan tier maps to a stronger set of models; you can also override individual model slots with the per-row picker.',
+  'guide.stepCouncilCta': 'Open the Council',
   'guide.step6Title': 'Use the scraper and search APIs directly',
   'guide.step6Body': 'Scraper (one-shot) runs a single browser call (fetch HTML, markdown, screenshot, PDF, links, extract). Scraper (sessions) keeps a persistent browser session for multi-step workflows. Search hits Google (web / news / maps) or batches up to 100 queries in one call.',
   'guide.step7Title': 'Generate, edit or analyze images',
@@ -390,6 +394,12 @@ const EN = {
   'guide.tip5Body': 'Settings → Danger zone clears agents, wallets, history in this browser only. Does not affect the backend.',
   'guide.tip6Title': '🛠 System health',
   'guide.tip6Body': 'Settings has a "Ping /healthz" button to verify API connectivity without spending balance.',
+  'guide.tipCouncilPlansTitle': '🧑‍⚖️ Council plans & cost',
+  'guide.tipCouncilPlansBody':
+    'Lite uses three lightweight models for ~$0.01 per run; Pro upgrades drafters and uses Sonnet 4.6 as chairman (~$0.20); Power runs Opus 4.7, GPT-5.2 and Gemini 2.5 Pro (~$0.60). Cost over 50¢ asks for confirmation. The total shown after each run is the real billed amount (balance diff), not the SDK estimate.',
+  'guide.tipCouncilHistoryTitle': '📚 Council history',
+  'guide.tipCouncilHistoryBody':
+    'The last 5 runs per plan (15 total per agent) live in localStorage on this device. Click any past run to re-open its drafts, debates, final answer and the chairman\'s reasoning. "Nueva corrida" closes the active run without deleting it.',
 
   // Images
   'images.title': 'Image tools',
@@ -826,6 +836,10 @@ const ES: Record<MessageKey, string> = {
   'guide.step5Title': 'Probar chat completions',
   'guide.step5Body': 'Chat usa deepseek/deepseek-v3.2 por default. Cambiar a otro modelo abre un diálogo de confirmación. Con Tools on el agente puede invocar tools MCP automáticamente para datos en vivo (búsqueda, scraping). Clickeá "Ver tools" para ver qué hay. El streaming se desactiva en modo agéntico y se reactiva si apagás Tools.',
   'guide.step5Cta': 'Ir a Chat',
+  'guide.stepCouncilTitle': '🧑‍⚖️ Convocá al Concejo para razonamiento profundo',
+  'guide.stepCouncilBody':
+    'Para preguntas con matices o de alto impacto, /concejo corre tres modelos redactores en paralelo, los hace criticarse anónimamente durante N rondas de debate (default 2), y un chairman sintetiza la respuesta final + explica sus decisiones. Elegí un tab de plan — Lite (~$0.01), Pro (~$0.20) o Power (~$0.60) — ajustá el slider de rondas, escribí tu tarea y convocá. Cada plan trae modelos más capaces; podés sobrescribir cualquier slot con el picker propio de cada redactor.',
+  'guide.stepCouncilCta': 'Abrir el Concejo',
   'guide.step6Title': 'Usar las APIs de scraper y search directo',
   'guide.step6Body': 'Scraper (one-shot) ejecuta una sola llamada al navegador (fetch HTML, markdown, screenshot, PDF, links, extract). Scraper (sesiones) mantiene una sesión persistente para flujos multi-paso. Search pega a Google (web / noticias / mapas) o batchea hasta 100 queries en un call.',
   'guide.step7Title': 'Generar, editar o analizar imágenes',
@@ -847,6 +861,12 @@ const ES: Record<MessageKey, string> = {
   'guide.tip5Body': 'Ajustes → Zona peligrosa borra agentes, wallets e historial solo en este navegador. NO afecta el backend.',
   'guide.tip6Title': '🛠 Salud del sistema',
   'guide.tip6Body': 'Ajustes tiene un botón "Ping /healthz" para verificar conectividad sin gastar saldo.',
+  'guide.tipCouncilPlansTitle': '🧑‍⚖️ Planes y costo del Concejo',
+  'guide.tipCouncilPlansBody':
+    'Lite usa tres modelos livianos por ~$0.01 por corrida; Pro mejora los redactores y usa Sonnet 4.6 de chairman (~$0.20); Power corre Opus 4.7, GPT-5.2 y Gemini 2.5 Pro (~$0.60). Costos sobre 50¢ piden confirmación. El total que ves al terminar es el cobrado real (balance diff), no la estimación del SDK.',
+  'guide.tipCouncilHistoryTitle': '📚 Historial del Concejo',
+  'guide.tipCouncilHistoryBody':
+    'Las últimas 5 corridas por plan (15 por agente) viven en localStorage de este navegador. Hacé clic en cualquier corrida pasada para volver a ver borradores, debates, respuesta final y el razonamiento del chairman. "Nueva corrida" cierra la activa sin borrarla del historial.',
 
   // Images
   'images.title': 'Tools de imagen',

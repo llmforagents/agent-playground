@@ -17,9 +17,10 @@ const STEPS: readonly Step[] = [
   { number: 3, titleKey: 'guide.step3Title', bodyKey: 'guide.step3Body', cta: { to: '/wallet', labelKey: 'guide.step3Cta' } },
   { number: 4, titleKey: 'guide.step4Title', bodyKey: 'guide.step4Body' },
   { number: 5, titleKey: 'guide.step5Title', bodyKey: 'guide.step5Body', cta: { to: '/chat', labelKey: 'guide.step5Cta' } },
-  { number: 6, titleKey: 'guide.step6Title', bodyKey: 'guide.step6Body' },
-  { number: 7, titleKey: 'guide.step7Title', bodyKey: 'guide.step7Body', cta: { to: '/images', labelKey: 'guide.step7Cta' } },
-  { number: 8, titleKey: 'guide.step9Title', bodyKey: 'guide.step9Body', cta: { to: '/transactions', labelKey: 'guide.step9Cta' } },
+  { number: 6, titleKey: 'guide.stepCouncilTitle', bodyKey: 'guide.stepCouncilBody', cta: { to: '/council', labelKey: 'guide.stepCouncilCta' } },
+  { number: 7, titleKey: 'guide.step6Title', bodyKey: 'guide.step6Body' },
+  { number: 8, titleKey: 'guide.step7Title', bodyKey: 'guide.step7Body', cta: { to: '/images', labelKey: 'guide.step7Cta' } },
+  { number: 9, titleKey: 'guide.step9Title', bodyKey: 'guide.step9Body', cta: { to: '/transactions', labelKey: 'guide.step9Cta' } },
 ]
 
 const TIPS: readonly { titleKey: MessageKey; bodyKey: MessageKey }[] = [
@@ -29,6 +30,8 @@ const TIPS: readonly { titleKey: MessageKey; bodyKey: MessageKey }[] = [
   { titleKey: 'guide.tip4Title', bodyKey: 'guide.tip4Body' },
   { titleKey: 'guide.tip5Title', bodyKey: 'guide.tip5Body' },
   { titleKey: 'guide.tip6Title', bodyKey: 'guide.tip6Body' },
+  { titleKey: 'guide.tipCouncilPlansTitle', bodyKey: 'guide.tipCouncilPlansBody' },
+  { titleKey: 'guide.tipCouncilHistoryTitle', bodyKey: 'guide.tipCouncilHistoryBody' },
 ]
 
 export function Guide(): React.JSX.Element {
