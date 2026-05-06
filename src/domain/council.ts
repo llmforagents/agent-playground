@@ -53,7 +53,7 @@ export const COUNCIL_PLANS: Readonly<Record<CouncilPlan, CouncilConfig>> = {
     drafters: [
       Model('google/gemini-2.5-flash'),
       Model('anthropic/claude-haiku-4.5'),
-      Model('openai/gpt-5'),
+      Model('openai/gpt-5-chat'),
     ],
     chairman: Model('anthropic/claude-sonnet-4.6'),
     debateRounds: PLAN_DEFAULT_ROUNDS.pro,
