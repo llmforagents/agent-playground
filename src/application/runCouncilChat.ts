@@ -35,30 +35,62 @@ export interface ChatPort {
   completionStream(args: ChatPortArgs): AsyncGenerator<ChatPortChunk, void, void>
 }
 
+/**
+ * Per-call hard timeout for council streams. Five minutes covers worst-case
+ * streaming for premium models on heavy prompts.
+ */
+const COUNCIL_STREAM_TIMEOUT_MS = 5 * 60 * 1000
+
+/**
+ * Idle timeout: if no chunk arrives within this window, we treat the stream as
+ * stuck and abort. Some providers send keep-alives or simply stop emitting
+ * `[DONE]` after the model finishes, leaving the SSE connection open forever.
+ * 60 s is generous enough not to fire during legitimate slow generation, while
+ * still rescuing the UI from a permanently "Sintetizando…" state.
+ */
+const COUNCIL_STREAM_IDLE_MS = 60 * 1000
+
 export function makeRestChatPort(rest: RestApiPort, key: ApiKey): ChatPort {
   return {
     async *completionStream({ model, messages, signal }) {
-      // Hold the AbortController in a local variable so it isn't garbage-collected
-      // mid-stream — when the controller is GC'd, its signal becomes inert and the
-      // browser aborts the underlying fetch with "BodyStreamBuffer was aborted".
-      const localController = signal ? null : new AbortController()
-      const effectiveSignal = signal ?? localController!.signal
-      const stream = rest.chatCompletionStream(
-        key,
-        {
-          model: String(model),
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
-          stream: true,
-        },
-        effectiveSignal,
-      )
-      let buffered = ''
+      // Always keep a local AbortController so we can fire idle aborts ourselves.
+      // We forward upstream aborts through it; the SDK only sees this controller's signal.
+      const localController = new AbortController()
+      const onUpstreamAbort = (): void => localController.abort('upstream')
+      if (signal) {
+        if (signal.aborted) localController.abort('upstream')
+        else signal.addEventListener('abort', onUpstreamAbort)
+      }
+
+      let idleTimer: ReturnType<typeof setTimeout> | null = null
+      const resetIdle = (): void => {
+        if (idleTimer) clearTimeout(idleTimer)
+        idleTimer = setTimeout(() => {
+          localController.abort('idle')
+        }, COUNCIL_STREAM_IDLE_MS)
+      }
+      resetIdle()
+
       try {
+        const stream = rest.chatCompletionStream(
+          key,
+          {
+            model: String(model),
+            messages: messages.map((m) => ({ role: m.role, content: m.content })),
+            stream: true,
+          },
+          localController.signal,
+          COUNCIL_STREAM_TIMEOUT_MS,
+        )
+        let buffered = ''
+        let sawDone = false
         for await (const chunk of stream) {
+          resetIdle()
           if (chunk.kind === 'delta') {
             buffered += chunk.text
             yield { kind: 'delta', text: chunk.text }
           } else if (chunk.kind === 'done') {
+            sawDone = true
             yield {
               kind: 'done',
               content: chunk.fullText || buffered,
@@ -66,12 +98,15 @@ export function makeRestChatPort(rest: RestApiPort, key: ApiKey): ChatPort {
             }
           }
         }
-      } finally {
-        // Explicit reference to keep TS/JS engines from optimising the controller
-        // away early; also ensures cleanup if the consumer abandons the iterator.
-        if (localController && !effectiveSignal.aborted) {
-          // not aborting here — natural completion path
+        // Some providers close the SSE connection without ever emitting a final
+        // chunk. If we got text but no `done`, synthesise one so callers exit
+        // their loops with the partial content instead of hanging.
+        if (!sawDone && buffered.length > 0) {
+          yield { kind: 'done', content: buffered, costCents: 0 }
         }
+      } finally {
+        if (idleTimer) clearTimeout(idleTimer)
+        if (signal) signal.removeEventListener('abort', onUpstreamAbort)
       }
     },
   }

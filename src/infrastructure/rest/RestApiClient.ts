@@ -94,9 +94,14 @@ export class RestApiClient implements RestApiPort {
   }
 
   async *chatCompletionStream(
-    key: ApiKey, req: ChatCompletionRequest, signal: AbortSignal,
+    key: ApiKey, req: ChatCompletionRequest, signal: AbortSignal, timeoutMs?: number,
   ): AsyncGenerator<ChatStreamChunk, void, void> {
-    const sdk = createSdkClient(key, { baseUrl: this.apiBase })
+    const sdk = createSdkClient(
+      key,
+      timeoutMs !== undefined
+        ? { baseUrl: this.apiBase, timeout: timeoutMs }
+        : { baseUrl: this.apiBase },
+    )
     let capturedMeta: SdkResponseMeta | undefined
     let finalReasoningTokens: number | undefined
     let stream: Awaited<ReturnType<SdkChatCompletions['create']>> & AsyncIterable<unknown>

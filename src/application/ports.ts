@@ -42,7 +42,7 @@ export interface RestApiPort {
   generateWallet(key: ApiKey, req: GenerateWalletRequest): Promise<Result<GenerateWalletResponse, RestError>>
   chatCompletion(key: ApiKey, req: ChatCompletionRequest): Promise<Result<ChatResponseWithMeta, RestError>>
   chatCompletionStream(
-    key: ApiKey, req: ChatCompletionRequest, signal: AbortSignal,
+    key: ApiKey, req: ChatCompletionRequest, signal: AbortSignal, timeoutMs?: number,
   ): AsyncGenerator<ChatStreamChunk, void, void>
   listTransactions(key: ApiKey, params: Readonly<{
     type?: 'deposit' | 'usage' | 'refund'; limit?: number; offset?: number

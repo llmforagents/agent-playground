@@ -8,7 +8,7 @@ import { Button } from '@/presentation/components/ui/button'
 
 const REASONING_MARKER = '===COUNCIL_REASONING==='
 
-type Props = Readonly<{ events: ReadonlyArray<CouncilEvent> }>
+type Props = Readonly<{ events: ReadonlyArray<CouncilEvent>; isRunning: boolean }>
 
 type DraftBucket = {
   slot: DrafterSlot
@@ -215,7 +215,7 @@ function reduceEvents(events: ReadonlyArray<CouncilEvent>): Reduced {
 
 const SLOT_ORDER: ReadonlyArray<DrafterSlot> = ['A', 'B', 'C']
 
-export function CouncilStream({ events }: Props) {
+export function CouncilStream({ events, isRunning }: Props) {
   const t = useT()
   const r = reduceEvents(events)
 
@@ -338,12 +338,22 @@ export function CouncilStream({ events }: Props) {
       ) : null}
 
       {/* 3. SYNTHESIS / FINAL ANSWER */}
-      {r.synthesis ? <SynthesisCard bucket={r.synthesis} /> : null}
+      {r.synthesis ? (
+        <SynthesisCard bucket={r.synthesis} isRunning={isRunning} failed={r.failed} />
+      ) : null}
     </div>
   )
 }
 
-function SynthesisCard({ bucket }: { bucket: SynthesisBucket }) {
+function SynthesisCard({
+  bucket,
+  isRunning,
+  failed,
+}: {
+  bucket: SynthesisBucket
+  isRunning: boolean
+  failed: boolean
+}) {
   const t = useT()
   const [showReasoning, setShowReasoning] = useState(false)
   const hasReasoning = bucket.reasoning.trim().length > 0
@@ -371,11 +381,15 @@ function SynthesisCard({ bucket }: { bucket: SynthesisBucket }) {
             </Button>
           ) : null}
         </div>
-      ) : (
+      ) : isRunning ? (
         <div className="text-xs text-muted-foreground mt-4 animate-pulse">
           {t('council.synthesizing')}…
         </div>
-      )}
+      ) : failed ? (
+        <div className="text-xs text-destructive mt-4">
+          {t('council.synthesisInterrupted')}
+        </div>
+      ) : null}
       {bucket.done && hasReasoning && showReasoning ? (
         <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4">
           <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">

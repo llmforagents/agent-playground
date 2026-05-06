@@ -59,7 +59,7 @@ export function Council() {
             </div>
           ) : null}
 
-          <CouncilStream events={state.events} />
+          <CouncilStream events={state.events} isRunning={state.isRunning} />
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Button onClick={closeRun} disabled={state.isRunning}>
               {t('council.newRun')}
