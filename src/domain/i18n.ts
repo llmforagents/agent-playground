@@ -98,6 +98,13 @@ const EN = {
   'agents.copyId': 'Copy ID',
   'agents.active': 'Active',
   'agents.deleteConfirm': 'Click to confirm',
+  'agents.configureExistingTitle': 'Configure existing agent',
+  'agents.configureExistingSubtitle': 'Already created an agent elsewhere? Paste its API key and give it a local name to use it on this device.',
+  'agents.apiKeyLabel': 'API key',
+  'agents.apiKeyHolder': 'sk-proxy-…',
+  'agents.configure': 'Save agent',
+  'agents.configuring': 'Validating key…',
+  'agents.configured': 'Agent configured',
 
   // Claim free credit
   'claim.title': 'Claim 50¢ test credit',
@@ -565,6 +572,13 @@ const ES: Record<MessageKey, string> = {
   'agents.copyId': 'Copiar ID',
   'agents.active': 'Activo',
   'agents.deleteConfirm': 'Click para confirmar',
+  'agents.configureExistingTitle': 'Configurar agente existente',
+  'agents.configureExistingSubtitle': '¿Ya creaste un agente en otro lado? Pega su API key y ponle un nombre local para usarlo en este dispositivo.',
+  'agents.apiKeyLabel': 'API key',
+  'agents.apiKeyHolder': 'sk-proxy-…',
+  'agents.configure': 'Guardar agente',
+  'agents.configuring': 'Validando key…',
+  'agents.configured': 'Agente configurado',
 
   // Claim free credit
   'claim.title': 'Reclamar 50¢ de crédito de prueba',

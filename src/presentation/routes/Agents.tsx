@@ -25,10 +25,12 @@ function maskKey(k: string): string {
 
 export function Agents() {
   const t = useT()
-  const { listQuery, register, remove } = useAgents()
+  const { listQuery, register, importExisting, remove } = useAgents()
   const active = useAppStore((s) => s.activeAgentId)
   const setActive = useAppStore((s) => s.setActiveAgent)
   const [name, setName] = useState('')
+  const [existingName, setExistingName] = useState('')
+  const [existingKey, setExistingKey] = useState('')
 
   const onCreate = async (): Promise<void> => {
     if (!name.trim()) return
@@ -42,33 +44,95 @@ export function Agents() {
     }
   }
 
+  const onConfigureExisting = async (): Promise<void> => {
+    const trimmedName = existingName.trim()
+    const trimmedKey = existingKey.trim()
+    if (!trimmedName || !trimmedKey) return
+    try {
+      const saved = await importExisting.mutateAsync({
+        name: trimmedName,
+        apiKey: trimmedKey,
+        color: pickColor(trimmedName),
+      })
+      if (!active) setActive(saved.id)
+      toast.success(t('agents.configured'), { description: trimmedName })
+      setExistingName('')
+      setExistingKey('')
+    } catch {
+      /* error shown via importExisting.error */
+    }
+  }
+
   const err = register.error
+  const importErr = importExisting.error
   const list = listQuery.data ?? []
+  const canConfigureExisting = existingName.trim().length > 0 && existingKey.trim().length > 0
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Card className="p-6">
-        <div className="text-center mb-4">
-          <h2 className="text-lg font-semibold">{t('agents.registerTitle')}</h2>
-          <p className="text-xs text-muted-foreground mt-1">{t('agents.registerSubtitle')}</p>
-        </div>
-
-        <div className="mx-auto max-w-xl space-y-3">
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1">{t('agents.nameLabel')}</label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('agents.nameHolder')}
-              onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) void onCreate() }}
-            />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-6">
+          <div className="text-center mb-4">
+            <h2 className="text-lg font-semibold">{t('agents.registerTitle')}</h2>
+            <p className="text-xs text-muted-foreground mt-1">{t('agents.registerSubtitle')}</p>
           </div>
-          <Button className="w-full" onClick={() => { void onCreate() }} disabled={register.isPending || !name.trim()}>
-            {register.isPending ? t('agents.registering') : t('agents.register')}
-          </Button>
-          {err ? <ErrorView error={err} /> : null}
-        </div>
-      </Card>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">{t('agents.nameLabel')}</label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('agents.nameHolder')}
+                onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) void onCreate() }}
+              />
+            </div>
+            <Button className="w-full" onClick={() => { void onCreate() }} disabled={register.isPending || !name.trim()}>
+              {register.isPending ? t('agents.registering') : t('agents.register')}
+            </Button>
+            {err ? <ErrorView error={err} /> : null}
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="text-center mb-4">
+            <h2 className="text-lg font-semibold">{t('agents.configureExistingTitle')}</h2>
+            <p className="text-xs text-muted-foreground mt-1">{t('agents.configureExistingSubtitle')}</p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">{t('agents.nameLabel')}</label>
+              <Input
+                value={existingName}
+                onChange={(e) => setExistingName(e.target.value)}
+                placeholder={t('agents.nameHolder')}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">{t('agents.apiKeyLabel')}</label>
+              <Input
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                value={existingKey}
+                onChange={(e) => setExistingKey(e.target.value)}
+                placeholder={t('agents.apiKeyHolder')}
+                className="font-mono"
+                onKeyDown={(e) => { if (e.key === 'Enter' && canConfigureExisting) void onConfigureExisting() }}
+              />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => { void onConfigureExisting() }}
+              disabled={importExisting.isPending || !canConfigureExisting}
+            >
+              {importExisting.isPending ? t('agents.configuring') : t('agents.configure')}
+            </Button>
+            {importErr ? <ErrorView error={importErr} /> : null}
+          </div>
+        </Card>
+      </div>
 
       <section>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">

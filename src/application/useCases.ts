@@ -41,6 +41,7 @@ export type Deps = Readonly<{
 export type UseCases = Readonly<{
   healthCheck(): Promise<Result<HealthzResponse, RestError>>
   registerAgent(req: RegisterAgentRequest, color: string): Promise<Result<Agent, RestError>>
+  importAgent(params: Readonly<{ name: string; apiKey: string; color: string }>): Promise<Result<Agent, RestError>>
   fetchBalance(agent: AgentId, key: ApiKey): Promise<Result<BalanceResponse, RestError>>
   fetchModels(agent: AgentId, key: ApiKey, search?: string): Promise<Result<ModelsResponse, RestError>>
   generateWallet(agent: AgentId, key: ApiKey, req: GenerateWalletRequest): Promise<Result<GenerateWalletResponse, RestError>>
@@ -106,6 +107,33 @@ export function makeUseCases(deps: Deps): UseCases {
         name: res.value.name,
         apiKey: ApiKey(res.value.apiKey),
         createdAt: new Date(res.value.createdAt),
+        color,
+      }
+      await deps.agents.add(agent)
+      return Ok(agent)
+    },
+
+    async importAgent({ name, apiKey, color }) {
+      let key: ApiKey
+      try { key = ApiKey(apiKey) } catch {
+        return Err({ kind: 'validation', issues: [{ path: ['apiKey'], message: 'API key is empty' }] })
+      }
+      const balance = await deps.rest.getBalance(key)
+      if (!balance.ok) return balance
+      const uuid = balance.value.uuid
+      if (!uuid) {
+        return Err({ kind: 'validation', issues: [{ path: ['uuid'], message: 'Server did not return agent uuid' }] })
+      }
+      let id: AgentId
+      try { id = AgentId(uuid) } catch {
+        return Err({ kind: 'validation', issues: [{ path: ['uuid'], message: `Invalid agent uuid: ${uuid}` }] })
+      }
+      const existing = await deps.agents.get(id)
+      const agent: Agent = {
+        id,
+        name,
+        apiKey: key,
+        createdAt: existing?.createdAt ?? deps.now(),
         color,
       }
       await deps.agents.add(agent)
