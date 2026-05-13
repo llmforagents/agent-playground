@@ -71,7 +71,7 @@ export function Agents() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="p-6">
+        <Card className="p-6 flex flex-col">
           <div className="text-center mb-4">
             <h2 className="text-lg font-semibold">{t('agents.registerTitle')}</h2>
             <p className="text-xs text-muted-foreground mt-1">{t('agents.registerSubtitle')}</p>
@@ -87,6 +87,9 @@ export function Agents() {
                 onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) void onCreate() }}
               />
             </div>
+          </div>
+
+          <div className="mt-auto pt-3 space-y-3">
             <Button className="w-full" onClick={() => { void onCreate() }} disabled={register.isPending || !name.trim()}>
               {register.isPending ? t('agents.registering') : t('agents.register')}
             </Button>
@@ -94,7 +97,7 @@ export function Agents() {
           </div>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-6 flex flex-col">
           <div className="text-center mb-4">
             <h2 className="text-lg font-semibold">{t('agents.configureExistingTitle')}</h2>
             <p className="text-xs text-muted-foreground mt-1">{t('agents.configureExistingSubtitle')}</p>
@@ -122,6 +125,9 @@ export function Agents() {
                 onKeyDown={(e) => { if (e.key === 'Enter' && canConfigureExisting) void onConfigureExisting() }}
               />
             </div>
+          </div>
+
+          <div className="mt-auto pt-3 space-y-3">
             <Button
               className="w-full"
               onClick={() => { void onConfigureExisting() }}
