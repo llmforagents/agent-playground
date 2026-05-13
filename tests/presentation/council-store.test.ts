@@ -120,3 +120,41 @@ describe('useCouncilStore', () => {
     expect(parsed.state.byAgent[A].runs).toHaveLength(1)
   })
 })
+
+describe('useCouncilStore — tool events persistence', () => {
+  it('preserves draft_tool_call and draft_tool_result events through JSON roundtrip', () => {
+    const snap: CouncilSnapshot = {
+      id: 'r1',
+      timestamp: new Date().toISOString(),
+      plan: 'pro',
+      userTask: 't',
+      events: [
+        { kind: 'council_started', totalDrafters: 3, chairman: 'm' as never, debateRounds: 2 },
+        {
+          kind: 'draft_tool_call',
+          slot: 'A',
+          callId: 'call_1',
+          toolName: 'google_search',
+          args: { q: 'foo' },
+        },
+        {
+          kind: 'draft_tool_result',
+          slot: 'A',
+          callId: 'call_1',
+          ok: true,
+          summary: '3 results',
+        },
+      ],
+      finalAnswer: null,
+      totalCostCents: 0,
+      error: null,
+    }
+    const json = JSON.parse(JSON.stringify(snap)) as CouncilSnapshot
+    expect(json.events).toHaveLength(3)
+    const toolCall = json.events[1] as Extract<typeof json.events[number], { kind: 'draft_tool_call' }>
+    expect(toolCall.callId).toBe('call_1')
+    expect(toolCall.toolName).toBe('google_search')
+    const toolResult = json.events[2] as Extract<typeof json.events[number], { kind: 'draft_tool_result' }>
+    expect(toolResult.ok).toBe(true)
+  })
+})
