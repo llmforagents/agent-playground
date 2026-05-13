@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { SearchIcon, XIcon } from 'lucide-react'
 import { DEFAULT_MODEL } from '@/domain/defaults'
 import type { ModelInfo } from '@/infrastructure/schemas/rest'
@@ -20,10 +21,24 @@ export function ModelPicker({ models, value, onChange }: Props) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const [confirmPending, setConfirmPending] = useState<string | null>(null)
-  const [openUpward, setOpenUpward] = useState(false)
-  const [dropdownMaxHeight, setDropdownMaxHeight] = useState(320)
+  // Dropdown is rendered via a portal to document.body with position:fixed
+  // because the ModelPicker lives inside cards with `overflow-hidden` that
+  // would otherwise clip the dropdown. We compute viewport coordinates
+  // (left/top OR bottom + width) from the input's getBoundingClientRect on
+  // every open/resize/scroll. Coordinates are clamped to the viewport so the
+  // list never extends past the screen edges.
+  type DropdownPos = Readonly<{
+    left: number
+    width: number
+    /** Either `top` (open downward) or `bottom` (open upward). */
+    top?: number
+    bottom?: number
+    maxHeight: number
+  }>
+  const [dropdownPos, setDropdownPos] = useState<DropdownPos | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const inputWrapperRef = useRef<HTMLDivElement | null>(null)
+  const dropdownRef = useRef<HTMLDivElement | null>(null)
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -40,7 +55,12 @@ export function ModelPicker({ models, value, onChange }: Props) {
   useEffect(() => {
     if (!open) return
     const onDocClick = (e: MouseEvent): void => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+      // The dropdown is rendered in a portal so it's not a child of rootRef.
+      // Treat clicks inside either the root OR the portaled dropdown as inside.
+      const target = e.target as Node
+      const insideRoot = rootRef.current?.contains(target) ?? false
+      const insideDropdown = dropdownRef.current?.contains(target) ?? false
+      if (!insideRoot && !insideDropdown) setOpen(false)
     }
     const onEsc = (e: KeyboardEvent): void => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onDocClick)
@@ -51,30 +71,34 @@ export function ModelPicker({ models, value, onChange }: Props) {
     }
   }, [open])
 
-  // Position the dropdown so it never clips off the viewport. When the input
-  // sits near the bottom (e.g. chairman picker on /council), flip upward.
-  // Always clamp the dropdown's max height to the actually-available space so
-  // it scrolls inside instead of extending past the viewport edge.
-  // Re-runs on open, on search (option count changes), and on resize/scroll.
+  // Re-compute portal coordinates on open, search changes (filtered count),
+  // resize, and ANY scroll (capture phase catches scrolling ancestors too).
   useEffect(() => {
     if (!open || !inputWrapperRef.current) {
-      setOpenUpward(false)
-      setDropdownMaxHeight(320)
+      setDropdownPos(null)
       return
     }
     const MARGIN = 12
-    const IDEAL = 320
+    const IDEAL_HEIGHT = 320
     const compute = (): void => {
       const el = inputWrapperRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
       const spaceBelow = window.innerHeight - rect.bottom - MARGIN
       const spaceAbove = rect.top - MARGIN
-      // Prefer downward unless upward has noticeably more room.
-      const flip = spaceBelow < IDEAL && spaceAbove > spaceBelow
-      setOpenUpward(flip)
+      const flip = spaceBelow < IDEAL_HEIGHT && spaceAbove > spaceBelow
       const available = Math.max(80, flip ? spaceAbove : spaceBelow)
-      setDropdownMaxHeight(Math.min(IDEAL, available))
+      const maxHeight = Math.min(IDEAL_HEIGHT, available)
+      const base: { left: number; width: number; maxHeight: number } = {
+        left: rect.left,
+        width: rect.width,
+        maxHeight,
+      }
+      setDropdownPos(
+        flip
+          ? { ...base, bottom: window.innerHeight - rect.top + 4 }
+          : { ...base, top: rect.bottom + 4 },
+      )
     }
     compute()
     window.addEventListener('resize', compute)
@@ -137,10 +161,23 @@ export function ModelPicker({ models, value, onChange }: Props) {
             </button>
           ) : null}
 
-          {showDropdown ? (
-            <div className={`absolute z-40 left-0 right-0 rounded-lg border border-border bg-popover text-popover-foreground shadow-lg overflow-hidden ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
-              <ul className="overflow-auto py-1" style={{ maxHeight: `${dropdownMaxHeight}px` }}>
-                {/* maxHeight is computed at runtime so the list never extends past the viewport edge */}
+        </div>
+      </div>
+
+      {/* Portal-rendered dropdown — bypasses any ancestor overflow:hidden. */}
+      {showDropdown && dropdownPos
+        ? createPortal(
+            <div
+              ref={dropdownRef}
+              className="fixed z-50 rounded-lg border border-border bg-popover text-popover-foreground shadow-lg overflow-hidden"
+              style={{
+                left: `${dropdownPos.left}px`,
+                width: `${dropdownPos.width}px`,
+                ...(dropdownPos.top !== undefined ? { top: `${dropdownPos.top}px` } : {}),
+                ...(dropdownPos.bottom !== undefined ? { bottom: `${dropdownPos.bottom}px` } : {}),
+              }}
+            >
+              <ul className="overflow-auto py-1" style={{ maxHeight: `${dropdownPos.maxHeight}px` }}>
                 {filtered.length === 0 ? (
                   <li className="px-3 py-4 text-sm text-muted-foreground text-center">
                     No models match &ldquo;{search}&rdquo;
@@ -174,10 +211,10 @@ export function ModelPicker({ models, value, onChange }: Props) {
                   Showing first 50 · refine your search
                 </div>
               ) : null}
-            </div>
-          ) : null}
-        </div>
-      </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {confirmPending ? (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
