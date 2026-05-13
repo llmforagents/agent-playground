@@ -291,7 +291,15 @@ export function makeUseCases(deps: Deps): UseCases {
       let lastError: { kind: string; message?: string } | undefined
 
       try {
-        for await (const event of runCouncilChat({ chat, getBalanceCents }, params)) {
+        for await (const event of runCouncilChat(
+          {
+            chat,
+            getBalanceCents,
+            apiKey: key,
+            ...(deps.sdkConfig !== undefined ? { sdkConfig: deps.sdkConfig } : {}),
+          },
+          params,
+        )) {
           if (event.kind === 'council_done') {
             totalCostCents = event.totalCostCents
             finalAnswer = event.finalAnswer
