@@ -1,7 +1,17 @@
+import { useState } from 'react'
 import { useT } from '@/presentation/hooks/useT'
 import { useAppStore } from '@/presentation/hooks/useAppStore'
 import type { CouncilSnapshot } from '@/presentation/hooks/useCouncilStore'
 import type { CouncilPlan } from '@/domain/council'
+import { Button } from '@/presentation/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/presentation/components/ui/dialog'
 
 const PLAN_EMOJI: Record<CouncilPlan, string> = {
   lite: '🪶',
@@ -26,6 +36,14 @@ function formatRunTimestamp(iso: string, locale: string): string {
   return `${date} ${time}`
 }
 
+function countToolsInRun(run: CouncilSnapshot): number {
+  let n = 0
+  for (const e of run.events) {
+    if (e.kind === 'draft_tool_call' || e.kind === 'debate_tool_call') n++
+  }
+  return n
+}
+
 type Props = Readonly<{
   runs: ReadonlyArray<CouncilSnapshot>
   activeRunId: string | null
@@ -37,8 +55,20 @@ type Props = Readonly<{
 export function CouncilHistory({ runs, activeRunId, onSelect, onDelete, onClearAll }: Props) {
   const t = useT()
   const locale = useAppStore((s) => s.locale)
+  const [clearAllOpen, setClearAllOpen] = useState(false)
+  const [deleteRunId, setDeleteRunId] = useState<string | null>(null)
 
   if (runs.length === 0) return null
+
+  const confirmClearAll = (): void => {
+    setClearAllOpen(false)
+    onClearAll()
+  }
+
+  const confirmDeleteRun = (): void => {
+    if (deleteRunId) onDelete(deleteRunId)
+    setDeleteRunId(null)
+  }
 
   return (
     <details className="rounded-lg border border-border bg-muted/20" open>
@@ -51,7 +81,7 @@ export function CouncilHistory({ runs, activeRunId, onSelect, onDelete, onClearA
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (window.confirm(t('council.clearAllConfirm'))) onClearAll()
+            setClearAllOpen(true)
           }}
           className="text-xs text-muted-foreground hover:text-destructive transition-colors"
         >
@@ -83,6 +113,14 @@ export function CouncilHistory({ runs, activeRunId, onSelect, onDelete, onClearA
                 {run.error ? (
                   <span className="text-destructive flex-shrink-0">⚠</span>
                 ) : null}
+                {(() => {
+                  const n = countToolsInRun(run)
+                  return n > 0 ? (
+                    <span className="text-muted-foreground flex-shrink-0 font-mono" title={`${n} tool calls`}>
+                      🔎 {n}
+                    </span>
+                  ) : null
+                })()}
                 <span className="font-mono text-muted-foreground flex-shrink-0">
                   ${(run.totalCostCents / 100).toFixed(4)}
                 </span>
@@ -91,7 +129,7 @@ export function CouncilHistory({ runs, activeRunId, onSelect, onDelete, onClearA
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (window.confirm(t('council.deleteRunConfirm'))) onDelete(run.id)
+                  setDeleteRunId(run.id)
                 }}
                 className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0 px-1"
                 aria-label={t('council.deleteRun')}
@@ -103,6 +141,46 @@ export function CouncilHistory({ runs, activeRunId, onSelect, onDelete, onClearA
           )
         })}
       </div>
+
+      <Dialog
+        open={clearAllOpen}
+        onOpenChange={(open) => { if (!open) setClearAllOpen(false) }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('council.clearAll')}</DialogTitle>
+            <DialogDescription>{t('council.clearAllConfirm')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClearAllOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={confirmClearAll}>
+              {t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteRunId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteRunId(null) }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('council.deleteRun')}</DialogTitle>
+            <DialogDescription>{t('council.deleteRunConfirm')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteRunId(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteRun}>
+              {t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </details>
   )
 }
