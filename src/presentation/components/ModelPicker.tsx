@@ -21,6 +21,7 @@ export function ModelPicker({ models, value, onChange }: Props) {
   const [open, setOpen] = useState(false)
   const [confirmPending, setConfirmPending] = useState<string | null>(null)
   const [openUpward, setOpenUpward] = useState(false)
+  const [dropdownMaxHeight, setDropdownMaxHeight] = useState(320)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const inputWrapperRef = useRef<HTMLDivElement | null>(null)
 
@@ -50,15 +51,38 @@ export function ModelPicker({ models, value, onChange }: Props) {
     }
   }, [open])
 
-  // Flip the dropdown upward when the input sits too close to the viewport
-  // bottom (e.g. the chairman picker is the last form field on /council).
-  // Threshold ≈ max dropdown height (max-h-80 = 320px) + a small breathing margin.
+  // Position the dropdown so it never clips off the viewport. When the input
+  // sits near the bottom (e.g. chairman picker on /council), flip upward.
+  // Always clamp the dropdown's max height to the actually-available space so
+  // it scrolls inside instead of extending past the viewport edge.
+  // Re-runs on open, on search (option count changes), and on resize/scroll.
   useEffect(() => {
-    if (!open || !inputWrapperRef.current) { setOpenUpward(false); return }
-    const rect = inputWrapperRef.current.getBoundingClientRect()
-    const spaceBelow = window.innerHeight - rect.bottom
-    const spaceAbove = rect.top
-    setOpenUpward(spaceBelow < 340 && spaceAbove > spaceBelow)
+    if (!open || !inputWrapperRef.current) {
+      setOpenUpward(false)
+      setDropdownMaxHeight(320)
+      return
+    }
+    const MARGIN = 12
+    const IDEAL = 320
+    const compute = (): void => {
+      const el = inputWrapperRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom - MARGIN
+      const spaceAbove = rect.top - MARGIN
+      // Prefer downward unless upward has noticeably more room.
+      const flip = spaceBelow < IDEAL && spaceAbove > spaceBelow
+      setOpenUpward(flip)
+      const available = Math.max(80, flip ? spaceAbove : spaceBelow)
+      setDropdownMaxHeight(Math.min(IDEAL, available))
+    }
+    compute()
+    window.addEventListener('resize', compute)
+    window.addEventListener('scroll', compute, true)
+    return () => {
+      window.removeEventListener('resize', compute)
+      window.removeEventListener('scroll', compute, true)
+    }
   }, [open, search])
 
   const attemptChange = (nextSlug: string): void => {
@@ -115,7 +139,8 @@ export function ModelPicker({ models, value, onChange }: Props) {
 
           {showDropdown ? (
             <div className={`absolute z-40 left-0 right-0 rounded-lg border border-border bg-popover text-popover-foreground shadow-lg overflow-hidden ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
-              <ul className="max-h-80 overflow-auto py-1">
+              <ul className="overflow-auto py-1" style={{ maxHeight: `${dropdownMaxHeight}px` }}>
+                {/* maxHeight is computed at runtime so the list never extends past the viewport edge */}
                 {filtered.length === 0 ? (
                   <li className="px-3 py-4 text-sm text-muted-foreground text-center">
                     No models match &ldquo;{search}&rdquo;
