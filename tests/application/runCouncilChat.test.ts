@@ -234,6 +234,22 @@ describe('runCouncilChat — billed total via balance diff', () => {
   })
 })
 
+describe('runCouncilChat — tools branch', () => {
+  it('with tools.stages=[] does NOT enter the tools branch', async () => {
+    // baseline: plan lite has tools.stages=[]. The existing happy path already covers this.
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      return singleChunk(isSynth ? 'final' : isDeb ? 'debate' : 'draft')
+    })
+    const events = await collect(
+      runCouncilChat({ chat }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
+    )
+    expect(events.some((e) => e.kind === 'draft_tool_call')).toBe(false)
+    expect(events.some((e) => e.kind === 'debate_tool_call')).toBe(false)
+  })
+})
+
 describe('splitChairmanOutput', () => {
   it('returns full text as answer and null reasoning when marker is missing', () => {
     const r = splitChairmanOutput('Just an answer with no marker.')

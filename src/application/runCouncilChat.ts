@@ -10,6 +10,7 @@ import {
   MAX_DRAFTERS,
   MIN_DEBATE_ROUNDS,
   MIN_DRAFTERS,
+  COUNCIL_TOOL_NAMES,
 } from '@/domain/council'
 import type { CouncilEvent } from '@/domain/councilEvents'
 import {
@@ -17,8 +18,15 @@ import {
   buildDebateMessages,
   buildSynthesisMessages,
   anonymizeOthers,
+  buildDrafterMessagesWithTools,
+  buildDebateMessagesWithTools,
   type ChatMessage,
 } from './buildCouncilPrompts'
+import {
+  runDrafterTurnWithTools,
+  type DrafterTurnEvent,
+} from './runCouncilTurn'
+import type { SdkConfig } from '@/infrastructure/sdk/sdkClient'
 import type { RestApiPort } from './ports'
 
 export type ChatPortArgs = Readonly<{
@@ -144,6 +152,10 @@ export type RunCouncilDeps = Readonly<{
    * that the SDK's per-chunk usage doesn't surface.
    */
   getBalanceCents?: () => Promise<number | null>
+  /** Required when any plan stage in config.tools.stages is non-empty. */
+  apiKey?: ApiKey
+  /** Optional SDK config forwarded to runDrafterTurnWithTools. */
+  sdkConfig?: SdkConfig
 }>
 
 /**
@@ -164,6 +176,70 @@ async function streamOne(
     } else if (chunk.kind === 'done') {
       content = chunk.content || content
       costCents = chunk.costCents
+    }
+  }
+  return { content, costCents }
+}
+
+type ToolEventForDrafter =
+  | Readonly<{ kind: 'tool_call'; slot: DrafterSlot; callId: string; toolName: import('@/domain/council').CouncilToolName; args: unknown }>
+  | Readonly<{ kind: 'tool_result'; slot: DrafterSlot; callId: string; ok: boolean; summary: string }>
+
+async function streamDrafterTurnInto(args: {
+  apiKey: ApiKey
+  sdkConfig?: SdkConfig
+  model: Model
+  systemPrompt: string
+  history: ReadonlyArray<ChatMessage>
+  userMessage: string
+  maxToolCalls: number
+  signal?: AbortSignal
+  slot: DrafterSlot
+  deltaQueue: Array<Readonly<{ slot: DrafterSlot; text: string }>>
+  toolQueue: ToolEventForDrafter[]
+}): Promise<{ content: string; costCents: number }> {
+  const gen = runDrafterTurnWithTools(
+    args.sdkConfig !== undefined
+      ? { key: args.apiKey, sdkConfig: args.sdkConfig }
+      : { key: args.apiKey },
+    {
+      model: args.model,
+      systemPrompt: args.systemPrompt,
+      history: args.history,
+      userMessage: args.userMessage,
+      allowedTools: COUNCIL_TOOL_NAMES,
+      maxToolCalls: args.maxToolCalls,
+      ...(args.signal ? { signal: args.signal } : {}),
+    },
+  )
+  let content = ''
+  let costCents = 0
+  for (;;) {
+    const r = await gen.next()
+    if (r.done) {
+      content = r.value.content
+      costCents = r.value.costCents
+      break
+    }
+    const ev: DrafterTurnEvent = r.value
+    if (ev.kind === 'delta') {
+      args.deltaQueue.push({ slot: args.slot, text: ev.text })
+    } else if (ev.kind === 'tool_call') {
+      args.toolQueue.push({
+        kind: 'tool_call',
+        slot: args.slot,
+        callId: ev.callId,
+        toolName: ev.toolName,
+        args: ev.args,
+      })
+    } else if (ev.kind === 'tool_result') {
+      args.toolQueue.push({
+        kind: 'tool_result',
+        slot: args.slot,
+        callId: ev.callId,
+        ok: ev.ok,
+        summary: ev.summary,
+      })
     }
   }
   return { content, costCents }
@@ -227,25 +303,60 @@ export async function* runCouncilChat(
   const draftDeltaQueue: DeltaItem[] = []
   let draftDoneCount = 0
 
+  const draftToolQueue: ToolEventForDrafter[] = []
+  const useToolsInDrafts = config.tools.stages.includes('drafts') &&
+    config.tools.maxCallsPerDrafter > 0
+
   const draftPromises = draftSlots.map(async ({ slot, model }) => {
     const t0 = Date.now()
     try {
-      const messages = buildDrafterMessages(userTask)
-      const final = await streamOne(
-        chat,
-        signal !== undefined ? { model, messages, signal } : { model, messages },
-        (text) => {
-          draftDeltaQueue.push({ slot, text })
-        },
-      )
-      const durationMs = Date.now() - t0
-      return {
-        kind: 'ok' as const,
-        slot,
-        model,
-        content: final.content,
-        costCents: final.costCents,
-        durationMs,
+      if (useToolsInDrafts) {
+        if (!deps.apiKey) {
+          throw new Error('runCouncilChat: tools enabled but apiKey not provided in deps')
+        }
+        const systemMsg = buildDrafterMessagesWithTools(
+          userTask,
+          COUNCIL_TOOL_NAMES,
+          config.tools.maxCallsPerDrafter,
+        )[0]
+        const final = await streamDrafterTurnInto({
+          apiKey: deps.apiKey,
+          ...(deps.sdkConfig !== undefined ? { sdkConfig: deps.sdkConfig } : {}),
+          model,
+          systemPrompt: systemMsg?.content ?? '',
+          history: [],
+          userMessage: userTask,
+          maxToolCalls: config.tools.maxCallsPerDrafter,
+          ...(signal !== undefined ? { signal } : {}),
+          slot,
+          deltaQueue: draftDeltaQueue,
+          toolQueue: draftToolQueue,
+        })
+        return {
+          kind: 'ok' as const,
+          slot,
+          model,
+          content: final.content,
+          costCents: final.costCents,
+          durationMs: Date.now() - t0,
+        }
+      } else {
+        const messages = buildDrafterMessages(userTask)
+        const final = await streamOne(
+          chat,
+          signal !== undefined ? { model, messages, signal } : { model, messages },
+          (text) => {
+            draftDeltaQueue.push({ slot, text })
+          },
+        )
+        return {
+          kind: 'ok' as const,
+          slot,
+          model,
+          content: final.content,
+          costCents: final.costCents,
+          durationMs: Date.now() - t0,
+        }
       }
     } catch (e) {
       return { kind: 'failed' as const, slot, model, error: coerceToAppError(e) }
@@ -254,9 +365,8 @@ export async function* runCouncilChat(
     }
   })
 
-  // Drain delta queue while drafts are running.
   while (draftDoneCount < draftSlots.length) {
-    if (draftDeltaQueue.length === 0) {
+    if (draftDeltaQueue.length === 0 && draftToolQueue.length === 0) {
       await new Promise((r) => setTimeout(r, 50))
       continue
     }
@@ -264,11 +374,53 @@ export async function* runCouncilChat(
       const item = draftDeltaQueue.shift()
       if (item) yield { kind: 'draft_delta', slot: item.slot, text: item.text }
     }
+    while (draftToolQueue.length > 0) {
+      const item = draftToolQueue.shift()
+      if (!item) continue
+      if (item.kind === 'tool_call') {
+        yield {
+          kind: 'draft_tool_call',
+          slot: item.slot,
+          callId: item.callId,
+          toolName: item.toolName,
+          args: item.args,
+        }
+      } else {
+        yield {
+          kind: 'draft_tool_result',
+          slot: item.slot,
+          callId: item.callId,
+          ok: item.ok,
+          summary: item.summary,
+        }
+      }
+    }
   }
-  // Flush any tail deltas
+  // Tail flush after all drafters finished
   while (draftDeltaQueue.length > 0) {
     const item = draftDeltaQueue.shift()
     if (item) yield { kind: 'draft_delta', slot: item.slot, text: item.text }
+  }
+  while (draftToolQueue.length > 0) {
+    const item = draftToolQueue.shift()
+    if (!item) continue
+    if (item.kind === 'tool_call') {
+      yield {
+        kind: 'draft_tool_call',
+        slot: item.slot,
+        callId: item.callId,
+        toolName: item.toolName,
+        args: item.args,
+      }
+    } else {
+      yield {
+        kind: 'draft_tool_result',
+        slot: item.slot,
+        callId: item.callId,
+        ok: item.ok,
+        summary: item.summary,
+      }
+    }
   }
 
   const draftSettlements = await Promise.all(draftPromises)
@@ -341,33 +493,112 @@ export async function* runCouncilChat(
 
     const latestPerSlot = getLatestPerSlot(round)
 
+    type DebateToolEv =
+      | Readonly<{ kind: 'tool_call'; round: number; slot: DrafterSlot; callId: string; toolName: import('@/domain/council').CouncilToolName; args: unknown }>
+      | Readonly<{ kind: 'tool_result'; round: number; slot: DrafterSlot; callId: string; ok: boolean; summary: string }>
+    const debateToolQueue: DebateToolEv[] = []
+    const useToolsInDebate = config.tools.stages.includes('debate') &&
+      config.tools.maxCallsPerDrafter > 0
+
     const debatePromises = liveDrafts.map(async (draft) => {
       const t0 = Date.now()
       try {
         const others = anonymizeOthers(latestPerSlot, draft.slot)
-        const messages = buildDebateMessages({
-          userTask,
-          myDraft: draft.content,
-          myPreviousDebate: previousDebatePerSlot.get(draft.slot) ?? null,
-          othersLatest: others,
-          round,
-          totalRounds: debateRounds,
-        })
-        const final = await streamOne(
-          chat,
-          signal !== undefined ? { model: draft.model, messages, signal } : { model: draft.model, messages },
-          (text) => {
-            debateDeltaQueue.push({ round, slot: draft.slot, text })
-          },
-        )
-        const durationMs = Date.now() - t0
-        return {
-          kind: 'ok' as const,
-          slot: draft.slot,
-          model: draft.model,
-          content: final.content,
-          costCents: final.costCents,
-          durationMs,
+        if (useToolsInDebate) {
+          if (!deps.apiKey) {
+            throw new Error('runCouncilChat: tools enabled but apiKey not provided in deps')
+          }
+          const baseMsgs = buildDebateMessagesWithTools({
+            userTask,
+            myDraft: draft.content,
+            myPreviousDebate: previousDebatePerSlot.get(draft.slot) ?? null,
+            othersLatest: others,
+            round,
+            totalRounds: debateRounds,
+            allowedTools: COUNCIL_TOOL_NAMES,
+            maxCalls: config.tools.maxCallsPerDrafter,
+          })
+          const systemMsg = baseMsgs[0]
+          const userMsg = baseMsgs[1]
+          const slotInner = draft.slot
+          const gen = runDrafterTurnWithTools(
+            deps.sdkConfig !== undefined
+              ? { key: deps.apiKey, sdkConfig: deps.sdkConfig }
+              : { key: deps.apiKey },
+            {
+              model: draft.model,
+              systemPrompt: systemMsg?.content ?? '',
+              history: [],
+              userMessage: userMsg?.content ?? '',
+              allowedTools: COUNCIL_TOOL_NAMES,
+              maxToolCalls: config.tools.maxCallsPerDrafter,
+              ...(signal !== undefined ? { signal } : {}),
+            },
+          )
+          let content = ''
+          let costCents = 0
+          for (;;) {
+            const r = await gen.next()
+            if (r.done) {
+              content = r.value.content
+              costCents = r.value.costCents
+              break
+            }
+            const ev = r.value
+            if (ev.kind === 'delta') {
+              debateDeltaQueue.push({ round, slot: slotInner, text: ev.text })
+            } else if (ev.kind === 'tool_call') {
+              debateToolQueue.push({
+                kind: 'tool_call',
+                round,
+                slot: slotInner,
+                callId: ev.callId,
+                toolName: ev.toolName,
+                args: ev.args,
+              })
+            } else if (ev.kind === 'tool_result') {
+              debateToolQueue.push({
+                kind: 'tool_result',
+                round,
+                slot: slotInner,
+                callId: ev.callId,
+                ok: ev.ok,
+                summary: ev.summary,
+              })
+            }
+          }
+          return {
+            kind: 'ok' as const,
+            slot: draft.slot,
+            model: draft.model,
+            content,
+            costCents,
+            durationMs: Date.now() - t0,
+          }
+        } else {
+          const messages = buildDebateMessages({
+            userTask,
+            myDraft: draft.content,
+            myPreviousDebate: previousDebatePerSlot.get(draft.slot) ?? null,
+            othersLatest: others,
+            round,
+            totalRounds: debateRounds,
+          })
+          const final = await streamOne(
+            chat,
+            signal !== undefined ? { model: draft.model, messages, signal } : { model: draft.model, messages },
+            (text) => {
+              debateDeltaQueue.push({ round, slot: draft.slot, text })
+            },
+          )
+          return {
+            kind: 'ok' as const,
+            slot: draft.slot,
+            model: draft.model,
+            content: final.content,
+            costCents: final.costCents,
+            durationMs: Date.now() - t0,
+          }
         }
       } catch (e) {
         return {
@@ -382,7 +613,7 @@ export async function* runCouncilChat(
     })
 
     while (debateDoneCount < liveDrafts.length) {
-      if (debateDeltaQueue.length === 0) {
+      if (debateDeltaQueue.length === 0 && debateToolQueue.length === 0) {
         await new Promise((r) => setTimeout(r, 50))
         continue
       }
@@ -390,10 +621,56 @@ export async function* runCouncilChat(
         const item = debateDeltaQueue.shift()
         if (item) yield { kind: 'debate_delta', round: item.round, slot: item.slot, text: item.text }
       }
+      while (debateToolQueue.length > 0) {
+        const item = debateToolQueue.shift()
+        if (!item) continue
+        if (item.kind === 'tool_call') {
+          yield {
+            kind: 'debate_tool_call',
+            round: item.round,
+            slot: item.slot,
+            callId: item.callId,
+            toolName: item.toolName,
+            args: item.args,
+          }
+        } else {
+          yield {
+            kind: 'debate_tool_result',
+            round: item.round,
+            slot: item.slot,
+            callId: item.callId,
+            ok: item.ok,
+            summary: item.summary,
+          }
+        }
+      }
     }
     while (debateDeltaQueue.length > 0) {
       const item = debateDeltaQueue.shift()
       if (item) yield { kind: 'debate_delta', round: item.round, slot: item.slot, text: item.text }
+    }
+    while (debateToolQueue.length > 0) {
+      const item = debateToolQueue.shift()
+      if (!item) continue
+      if (item.kind === 'tool_call') {
+        yield {
+          kind: 'debate_tool_call',
+          round: item.round,
+          slot: item.slot,
+          callId: item.callId,
+          toolName: item.toolName,
+          args: item.args,
+        }
+      } else {
+        yield {
+          kind: 'debate_tool_result',
+          round: item.round,
+          slot: item.slot,
+          callId: item.callId,
+          ok: item.ok,
+          summary: item.summary,
+        }
+      }
     }
 
     const settlements = await Promise.all(debatePromises)
