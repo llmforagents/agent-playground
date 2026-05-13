@@ -52,6 +52,7 @@ export function CouncilToolPanel({ toolCalls }: Props) {
     fetch: String(fetch),
   })
 
+  const listId = 'council-tool-panel-list'
   return (
     <div className="text-xs">
       <button
@@ -59,24 +60,25 @@ export function CouncilToolPanel({ toolCalls }: Props) {
         onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
         aria-expanded={open}
+        aria-controls={listId}
       >
-        {open ? <ChevronDownIcon className="size-3" /> : <ChevronRightIcon className="size-3" />}
-        <span>🔎 {counterText}</span>
+        {open ? <ChevronDownIcon className="size-3" aria-hidden="true" /> : <ChevronRightIcon className="size-3" aria-hidden="true" />}
+        <span><span aria-hidden="true">🔎 </span>{counterText}</span>
       </button>
       {open ? (
-        <ul className="mt-1 space-y-0.5 border-l border-border pl-2">
+        <ul id={listId} className="mt-1 space-y-0.5 border-l border-border pl-2">
           {toolCalls.map((tc) => (
             <li key={tc.callId} className="flex items-center gap-2 text-[11px]">
-              {iconFor(tc.toolName)}
+              <span aria-hidden="true">{iconFor(tc.toolName)}</span>
               <span className="font-mono text-muted-foreground truncate">
                 {tc.toolName}("{previewArgs(tc.args)}")
               </span>
               {tc.result === null ? (
-                <span className="text-muted-foreground">…</span>
+                <span className="text-muted-foreground" aria-label="pending">…</span>
               ) : tc.result.ok ? (
-                <span className="text-emerald-600">✓</span>
+                <span className="text-emerald-600" aria-label="ok">✓</span>
               ) : (
-                <span className="text-destructive">✗</span>
+                <span className="text-destructive" aria-label="failed">✗</span>
               )}
             </li>
           ))}
