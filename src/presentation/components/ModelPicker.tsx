@@ -20,7 +20,9 @@ export function ModelPicker({ models, value, onChange }: Props) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const [confirmPending, setConfirmPending] = useState<string | null>(null)
+  const [openUpward, setOpenUpward] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const inputWrapperRef = useRef<HTMLDivElement | null>(null)
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -47,6 +49,17 @@ export function ModelPicker({ models, value, onChange }: Props) {
       document.removeEventListener('keydown', onEsc)
     }
   }, [open])
+
+  // Flip the dropdown upward when the input sits too close to the viewport
+  // bottom (e.g. the chairman picker is the last form field on /council).
+  // Threshold ≈ max dropdown height (max-h-80 = 320px) + a small breathing margin.
+  useEffect(() => {
+    if (!open || !inputWrapperRef.current) { setOpenUpward(false); return }
+    const rect = inputWrapperRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    setOpenUpward(spaceBelow < 340 && spaceAbove > spaceBelow)
+  }, [open, search])
 
   const attemptChange = (nextSlug: string): void => {
     setOpen(false)
@@ -79,7 +92,7 @@ export function ModelPicker({ models, value, onChange }: Props) {
           ) : null}
         </div>
 
-        <div className="relative flex-1 min-w-[14rem]">
+        <div ref={inputWrapperRef} className="relative flex-1 min-w-[14rem]">
           <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
           <input
             type="text"
@@ -101,7 +114,7 @@ export function ModelPicker({ models, value, onChange }: Props) {
           ) : null}
 
           {showDropdown ? (
-            <div className="absolute z-40 mt-1 left-0 right-0 rounded-lg border border-border bg-popover text-popover-foreground shadow-lg overflow-hidden">
+            <div className={`absolute z-40 left-0 right-0 rounded-lg border border-border bg-popover text-popover-foreground shadow-lg overflow-hidden ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
               <ul className="max-h-80 overflow-auto py-1">
                 {filtered.length === 0 ? (
                   <li className="px-3 py-4 text-sm text-muted-foreground text-center">
