@@ -2,12 +2,16 @@ import { useState } from 'react'
 import {
   type CouncilConfig,
   type CouncilPlan,
+  type CouncilStage,
   COUNCIL_EXPENSIVE_THRESHOLD_CENTS,
   COUNCIL_PLANS,
   COUNCIL_PLAN_ORDER,
+  COUNCIL_STAGE_ORDER,
   DEFAULT_COUNCIL_PLAN,
   MAX_DEBATE_ROUNDS,
+  MAX_TOOL_CALLS_PER_DRAFTER,
   MIN_DEBATE_ROUNDS,
+  MIN_TOOL_CALLS_PER_DRAFTER,
   estimateCouncilCostCents,
 } from '@/domain/council'
 import { Model } from '@/domain/branded'
@@ -16,6 +20,14 @@ import { useModels } from '@/presentation/hooks/useModels'
 import { Button } from '@/presentation/components/ui/button'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import { Label } from '@/presentation/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/presentation/components/ui/dialog'
 import { ModelPicker } from '@/presentation/components/ModelPicker'
 import type { MessageKey } from '@/domain/i18n'
 
@@ -42,6 +54,7 @@ export function CouncilSetup({ disabled, onStart }: Props) {
   const [task, setTask] = useState('')
   const [plan, setPlan] = useState<CouncilPlan>(DEFAULT_COUNCIL_PLAN)
   const [config, setConfig] = useState<CouncilConfig>(COUNCIL_PLANS[DEFAULT_COUNCIL_PLAN])
+  const [expensiveConfirmOpen, setExpensiveConfirmOpen] = useState(false)
 
   const modelList = models.data?.models ?? []
   const estimatedCents = estimateCouncilCostCents(config)
@@ -55,11 +68,14 @@ export function CouncilSetup({ disabled, onStart }: Props) {
   const handleStart = (): void => {
     if (!task.trim()) return
     if (isExpensive) {
-      const ok = window.confirm(
-        t('council.expensiveConfirm', { cost: (estimatedCents / 100).toFixed(2) }),
-      )
-      if (!ok) return
+      setExpensiveConfirmOpen(true)
+      return
     }
+    onStart({ config, userTask: task, plan })
+  }
+
+  const confirmExpensiveStart = (): void => {
+    setExpensiveConfirmOpen(false)
     onStart({ config, userTask: task, plan })
   }
 
@@ -78,6 +94,19 @@ export function CouncilSetup({ disabled, onStart }: Props) {
   const updateRounds = (n: number): void => {
     const clamped = Math.max(MIN_DEBATE_ROUNDS, Math.min(MAX_DEBATE_ROUNDS, n))
     setConfig({ ...config, debateRounds: clamped })
+  }
+
+  const toggleToolStage = (stage: CouncilStage): void => {
+    const current = config.tools.stages
+    const next = current.includes(stage)
+      ? current.filter((s) => s !== stage)
+      : [...current, stage]
+    setConfig({ ...config, tools: { ...config.tools, stages: next } })
+  }
+
+  const updateToolMaxCalls = (n: number): void => {
+    const clamped = Math.max(MIN_TOOL_CALLS_PER_DRAFTER, Math.min(MAX_TOOL_CALLS_PER_DRAFTER, n))
+    setConfig({ ...config, tools: { ...config.tools, maxCallsPerDrafter: clamped } })
   }
 
   return (
@@ -163,6 +192,58 @@ export function CouncilSetup({ disabled, onStart }: Props) {
         <p className="text-[11px] text-muted-foreground">{t('council.roundsHint')}</p>
       </div>
 
+      <div className="space-y-2 rounded-lg border border-border bg-muted/10 p-3">
+        <Label>{t('council.toolsLabel')}</Label>
+        <div className="text-[11px] text-muted-foreground">{t('council.toolsAvailable')}</div>
+
+        <div className="flex items-center gap-4 pt-1">
+          <span className="text-xs text-muted-foreground">{t('council.toolsStagesLabel')}</span>
+          {COUNCIL_STAGE_ORDER.map((stage) => {
+            const checked = config.tools.stages.includes(stage)
+            const labelKey = stage === 'drafts' ? 'council.toolsStageDrafts' : 'council.toolsStageDebate'
+            return (
+              <label key={stage} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleToolStage(stage)}
+                  disabled={disabled}
+                  className="accent-foreground"
+                />
+                <span>{t(labelKey)}</span>
+              </label>
+            )
+          })}
+        </div>
+
+        <div className="space-y-1 pt-1">
+          <Label>
+            {t('council.toolsMaxCallsLabel')}{' '}
+            <span className="font-mono text-muted-foreground">({config.tools.maxCallsPerDrafter})</span>
+          </Label>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={MIN_TOOL_CALLS_PER_DRAFTER}
+              max={MAX_TOOL_CALLS_PER_DRAFTER}
+              step={1}
+              value={config.tools.maxCallsPerDrafter}
+              onChange={(e) => updateToolMaxCalls(Number(e.target.value))}
+              disabled={disabled}
+              className="flex-1 accent-foreground"
+              aria-label={t('council.toolsMaxCallsLabel')}
+            />
+            <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">
+              {MIN_TOOL_CALLS_PER_DRAFTER}–{MAX_TOOL_CALLS_PER_DRAFTER}
+            </span>
+          </div>
+        </div>
+
+        {config.tools.maxCallsPerDrafter > 0 && config.tools.stages.length === 0 ? (
+          <p className="text-[11px] text-destructive">{t('council.toolsNoStages')}</p>
+        ) : null}
+      </div>
+
       <div className="space-y-2">
         <Label>{t('council.chairmanLabel')}</Label>
         <div className="rounded-lg border border-border bg-muted/20 p-3">
@@ -188,6 +269,26 @@ export function CouncilSetup({ disabled, onStart }: Props) {
           {t('council.startButton')}
         </Button>
       </div>
+
+      <Dialog
+        open={expensiveConfirmOpen}
+        onOpenChange={(open) => { if (!open) setExpensiveConfirmOpen(false) }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('council.expensiveWarning')}</DialogTitle>
+            <DialogDescription>
+              {t('council.expensiveConfirm', { cost: (estimatedCents / 100).toFixed(2) })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExpensiveConfirmOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={confirmExpensiveStart}>{t('common.confirm')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
