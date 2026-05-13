@@ -21,6 +21,8 @@ import type {
 } from '@/application/ports'
 import type { ZodLikeIssue } from '@/domain/errors'
 
+// 60s covers REST envelopes (balance, models, transactions, register, claim).
+// Streaming chat uses its own timeout passed by the caller.
 const DEFAULT_TIMEOUT_MS = 60_000
 
 function zodIssuesToZodLike(

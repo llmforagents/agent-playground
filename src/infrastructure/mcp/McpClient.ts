@@ -17,6 +17,8 @@ type JsonRpcResponse =
   | { readonly jsonrpc: '2.0'; readonly id: number; readonly result: unknown }
   | { readonly jsonrpc: '2.0'; readonly id: number; readonly error: { code: number; message: string; data?: unknown } }
 
+// 90s (vs 60s for REST) gives headroom for browser-driven scraper tools
+// (screenshot, pdf, session_exec) that load and render full pages upstream.
 const DEFAULT_TIMEOUT_MS = 90_000
 
 function zodIssuesToZodLike(
