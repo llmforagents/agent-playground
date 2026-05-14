@@ -250,6 +250,89 @@ describe('runCouncilChat — tools branch', () => {
   })
 })
 
+describe('runCouncilChat — empty-content cost guard', () => {
+  it('reclassifies a drafter with empty content as draft_failed and still bills the cost', async () => {
+    let n = 0
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      if (isSynth) return singleChunk('final', 0)
+      if (isDeb) return singleChunk('debate', 1)
+      // Draft stage: first drafter is empty (cost 5), the other two are fine.
+      n += 1
+      return n === 1 ? singleChunk('', 5) : singleChunk('good draft', 1)
+    })
+
+    const events = await collect(
+      runCouncilChat({ chat }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
+    )
+
+    const draftFailed = events.filter((e) => e.kind === 'draft_failed')
+    const draftDone = events.filter((e) => e.kind === 'draft_done')
+    const councilDone = events.find((e) => e.kind === 'council_done')
+    expect(draftFailed).toHaveLength(1)
+    expect(draftDone).toHaveLength(2)
+    // The validation issue carries the empty-content reason.
+    const failed = draftFailed[0]!
+    expect(failed.kind === 'draft_failed' && failed.error.kind === 'validation').toBe(true)
+    // The 5¢ spent by the empty drafter is billed in the council total.
+    expect(councilDone?.kind === 'council_done' && councilDone.totalCostCents >= 5).toBe(true)
+  })
+
+  it('aborts with council_failed when ALL drafters return empty content, billing partial cost', async () => {
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      if (isSynth) return singleChunk('never reached', 0)
+      if (isDeb) return singleChunk('never reached', 0)
+      return singleChunk('', 7) // every drafter returns empty, billed 7¢ each
+    })
+
+    const events = await collect(
+      runCouncilChat({ chat }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
+    )
+
+    const councilFailed = events.find((e) => e.kind === 'council_failed')
+    const councilDone = events.find((e) => e.kind === 'council_done')
+    expect(councilDone).toBeUndefined()
+    expect(councilFailed).toBeDefined()
+    // 3 drafters × 7¢ = 21¢ billed before the MIN_LIVE_DRAFTS guard trips.
+    expect(
+      councilFailed?.kind === 'council_failed' && councilFailed.partialCostCents >= 21,
+    ).toBe(true)
+    // No debate or synthesis events should be emitted.
+    expect(events.some((e) => e.kind === 'debate_started')).toBe(false)
+    expect(events.some((e) => e.kind === 'synthesis_started')).toBe(false)
+  })
+
+  it('regression: a debater with empty content emits debate_failed but does NOT abort the run', async () => {
+    let debateCount = 0
+    const chat = fakeChat((args) => {
+      const isSynth = isSynthesisRequest(args.messages)
+      const isDeb = !isSynth && isDebateRequest(args.messages)
+      if (isSynth) return singleChunk('final', 0)
+      if (isDeb) {
+        debateCount += 1
+        // First debater of round 1 returns empty; others fine. Run must continue.
+        return debateCount === 1 ? singleChunk('', 3) : singleChunk('rebuttal', 1)
+      }
+      return singleChunk('draft', 1)
+    })
+
+    const events = await collect(
+      runCouncilChat({ chat }, { config: COUNCIL_PLANS.lite, userTask: 't' }),
+    )
+
+    const debateFailed = events.filter((e) => e.kind === 'debate_failed')
+    expect(debateFailed.length).toBeGreaterThanOrEqual(1)
+    const empty = debateFailed.find(
+      (e) => e.kind === 'debate_failed' && e.error.kind === 'validation',
+    )
+    expect(empty).toBeDefined()
+    expect(events.find((e) => e.kind === 'council_done')).toBeDefined()
+  })
+})
+
 describe('splitChairmanOutput', () => {
   it('returns full text as answer and null reasoning when marker is missing', () => {
     const r = splitChairmanOutput('Just an answer with no marker.')

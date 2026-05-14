@@ -90,7 +90,12 @@ export async function* runDrafterTurnWithTools(
       if (typeof m.costUsdCents === 'number') costCents += m.costUsdCents
     },
     enablePromptToolFallback: true,
-    maxToolRounds: Math.max(1, params.maxToolCalls),
+    // Leave at least 2 rounds of LLM headroom after the tool budget so the
+    // model can read its accumulated tool results and produce the final text.
+    // Setting this equal to maxToolCalls (previous behavior) made the SDK
+    // hit tool_loop_limit empty when the model exhausted the budget on tool
+    // calls, returning content: '' that we still billed for.
+    maxToolRounds: Math.max(2, params.maxToolCalls + 2),
     ...(params.signal ? { signal: params.signal } : {}),
   })
 
