@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { EyeIcon, WrenchIcon, SearchIcon, GlobeIcon, XIcon, ImageIcon } from 'lucide-react'
+import {
+  EyeIcon, WrenchIcon, SearchIcon, GlobeIcon, XIcon, ImageIcon,
+  SparklesIcon, BellIcon, DatabaseIcon, BoxesIcon, NetworkIcon, BrainIcon, CoinsIcon, FileTextIcon,
+} from 'lucide-react'
 import { CHAT_TOOLS, type ChatToolDef } from '@/domain/chatTools'
 import { Switch } from '@/presentation/components/ui/switch'
 import { useT } from '@/presentation/hooks/useT'
@@ -10,6 +13,41 @@ type Props = Readonly<{
 }>
 
 type TFn = ReturnType<typeof useT>
+
+type ToolCategory = ChatToolDef['category']
+
+type ToolGroupDef = Readonly<{
+  cat: ToolCategory
+  title: (t: TFn) => string
+  icon: React.ReactNode
+}>
+
+const TOOL_GROUPS: readonly ToolGroupDef[] = [
+  { cat: 'search', title: (t) => t('chat.toolsSearch'), icon: <SearchIcon className="size-3.5" /> },
+  { cat: 'scraper', title: (t) => t('chat.toolsWebScraper'), icon: <GlobeIcon className="size-3.5" /> },
+  { cat: 'image', title: (t) => t('chat.toolsImages'), icon: <ImageIcon className="size-3.5" /> },
+  { cat: 'ai', title: () => 'AI', icon: <SparklesIcon className="size-3.5" /> },
+  { cat: 'notify', title: () => 'Notify', icon: <BellIcon className="size-3.5" /> },
+  { cat: 'data', title: () => 'Data', icon: <DatabaseIcon className="size-3.5" /> },
+  { cat: 'vector', title: () => 'Vector', icon: <BoxesIcon className="size-3.5" /> },
+  { cat: 'web_crawl', title: () => 'Web Crawl', icon: <NetworkIcon className="size-3.5" /> },
+  { cat: 'memory', title: () => 'Memory', icon: <BrainIcon className="size-3.5" /> },
+  { cat: 'web3', title: () => 'Web3', icon: <CoinsIcon className="size-3.5" /> },
+  { cat: 'document', title: () => 'Document', icon: <FileTextIcon className="size-3.5" /> },
+] as const
+
+function renderToolGroups(t: TFn): React.JSX.Element {
+  return (
+    <>
+      {TOOL_GROUPS.map((g) => {
+        const tools = CHAT_TOOLS.filter((x) => x.category === g.cat)
+        return tools.length > 0
+          ? <ToolGroup key={g.cat} title={g.title(t)} icon={g.icon} tools={tools} />
+          : null
+      })}
+    </>
+  )
+}
 
 export function ToolsCompound({ toolsOn, onToolsOnChange }: Props): React.JSX.Element {
   const t = useT()
@@ -29,10 +67,6 @@ export function ToolsCompound({ toolsOn, onToolsOnChange }: Props): React.JSX.El
       document.removeEventListener('keydown', onEsc)
     }
   }, [open])
-
-  const searchTools = CHAT_TOOLS.filter((x) => x.category === 'search')
-  const scraperTools = CHAT_TOOLS.filter((x) => x.category === 'scraper')
-  const imageTools = CHAT_TOOLS.filter((x) => x.category === 'image')
 
   return (
     <div ref={rootRef} className="relative">
@@ -72,7 +106,7 @@ export function ToolsCompound({ toolsOn, onToolsOnChange }: Props): React.JSX.El
 
       {open ? (
         <div className="hidden sm:block absolute z-40 mt-1 left-0 w-[min(26rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg overflow-hidden">
-          <ToolsList searchTools={searchTools} scraperTools={scraperTools} imageTools={imageTools} t={t} />
+          <ToolsList t={t} />
         </div>
       ) : null}
 
@@ -100,9 +134,7 @@ export function ToolsCompound({ toolsOn, onToolsOnChange }: Props): React.JSX.El
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <ToolGroup title={t('chat.toolsSearch')} icon={<SearchIcon className="size-3.5" />} tools={searchTools} />
-              <ToolGroup title={t('chat.toolsWebScraper')} icon={<GlobeIcon className="size-3.5" />} tools={scraperTools} />
-              <ToolGroup title={t('chat.toolsImages')} icon={<ImageIcon className="size-3.5" />} tools={imageTools} />
+              {renderToolGroups(t)}
             </div>
             <div className="px-3 py-2 border-t border-border bg-muted/20 text-[11px] text-muted-foreground flex items-center justify-between">
               <span>{t('chat.toolsBilled')}</span>
@@ -115,7 +147,7 @@ export function ToolsCompound({ toolsOn, onToolsOnChange }: Props): React.JSX.El
   )
 }
 
-function ToolsList({ searchTools, scraperTools, imageTools, t }: { searchTools: readonly ChatToolDef[]; scraperTools: readonly ChatToolDef[]; imageTools: readonly ChatToolDef[]; t: TFn }): React.JSX.Element {
+function ToolsList({ t }: { t: TFn }): React.JSX.Element {
   return (
     <>
       <div className="px-3 py-2 border-b border-border">
@@ -124,9 +156,7 @@ function ToolsList({ searchTools, scraperTools, imageTools, t }: { searchTools: 
       </div>
 
       <div className="max-h-[28rem] overflow-auto">
-        <ToolGroup title={t('chat.toolsSearch')} icon={<SearchIcon className="size-3.5" />} tools={searchTools} />
-        <ToolGroup title={t('chat.toolsWebScraper')} icon={<GlobeIcon className="size-3.5" />} tools={scraperTools} />
-        <ToolGroup title={t('chat.toolsImages')} icon={<ImageIcon className="size-3.5" />} tools={imageTools} />
+        {renderToolGroups(t)}
       </div>
 
       <div className="px-3 py-2 border-t border-border bg-muted/20 text-[11px] text-muted-foreground flex items-center justify-between">

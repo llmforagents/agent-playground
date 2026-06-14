@@ -23,7 +23,21 @@ export const IMAGE_TOOLS = [
 ] as const
 export type ImageTool = (typeof IMAGE_TOOLS)[number]
 
-export type McpToolName = OneShotTool | SessionTool | SearchTool | ImageTool
+export const EXTENDED_TOOLS = [
+  'ai_summarize', 'ai_translate', 'ai_embed', 'ai_classify', 'ai_moderate', 'ai_rerank',
+  'image_to_text', 'speech_to_text',
+  'send_telegram', 'send_discord', 'send_slack', 'webhook_post', 'send_email', 'send_sms',
+  'dns_lookup', 'ip_geolocate', 'url_unfurl', 'rss_parse', 'youtube_transcript', 'whois',
+  'crypto_price', 'fx_convert', 'qr_generate', 'captcha_solve_create', 'captcha_solve_result',
+  'vector_upsert', 'vector_query', 'vector_delete',
+  'web_crawl',
+  'memory_set', 'memory_get', 'memory_list', 'memory_delete',
+  'token_balance', 'tx_status', 'nft_metadata', 'ens_resolve',
+  'pdf_parse', 'doc_extract', 'article_extract',
+] as const
+export type ExtendedTool = (typeof EXTENDED_TOOLS)[number]
+
+export type McpToolName = OneShotTool | SessionTool | SearchTool | ImageTool | ExtendedTool
 
 export type McpSession = Readonly<{
   id: SessionId
