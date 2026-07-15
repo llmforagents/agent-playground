@@ -251,6 +251,30 @@ export const CHAT_TOOLS: readonly ChatToolDef[] = [
     },
   },
 
+  {
+    mcpName: 'generate_ad_banner',
+    category: 'image',
+    costPerCall: '$0.06',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'generate_ad_banner',
+        description: 'Generate an advertising banner at an EXACT pixel size for an ad network (Google, Meta, Instagram, LinkedIn, Reddit, X, TikTok, Pinterest). Returns a base64 image cropped to the requested size. Give a size as either `preset` (a catalog key like "leaderboard", "medium_rectangle", "fb_story", or a "WxH" string like "728x90") OR both `width` and `height`. Use when the user asks for an ad, banner, or creative at a specific ad size. Cost: $0.06 per banner.',
+        parameters: {
+          type: 'object',
+          properties: {
+            prompt: { type: 'string', description: 'What the banner should show (max 4096 chars)' },
+            preset: { type: 'string', description: 'Ad-size preset key (e.g. "leaderboard", "medium_rectangle", "fb_story") or a "WxH" string (e.g. "728x90"). Provide this OR width+height.' },
+            width: { type: 'integer', description: 'Banner width in pixels (16–4000). Use with height when not using a preset.' },
+            height: { type: 'integer', description: 'Banner height in pixels (16–4000). Use with width when not using a preset.' },
+            output_format: { type: 'string', enum: ['png', 'jpeg'], description: 'Output format, default "png".' },
+          },
+          required: ['prompt'],
+        },
+      },
+    },
+  },
+
   // === AI ===
   {
     mcpName: 'ai_summarize',

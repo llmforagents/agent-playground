@@ -19,18 +19,21 @@ const TOOL_LABEL_KEYS: Record<ImageTool, MessageKey> = {
   generate_image: 'images.toolGenerate',
   edit_image: 'images.toolEdit',
   analyze_image: 'images.toolAnalyze',
+  generate_ad_banner: 'images.toolBanner',
 }
 
 const TOOL_DESCRIPTION_KEYS: Record<ImageTool, MessageKey> = {
   generate_image: 'images.descGenerate',
   edit_image: 'images.descEdit',
   analyze_image: 'images.descAnalyze',
+  generate_ad_banner: 'images.descBanner',
 }
 
 const TOOL_COST_LABELS: Record<ImageTool, string> = {
   generate_image: '$0.01 (≤1.5 MP) · $0.02 (>1.5 MP)',
   edit_image: '$0.02',
   analyze_image: '$0.006',
+  generate_ad_banner: '$0.06',
 }
 
 function imageDataUri(result: McpToolResult): string | null {
@@ -61,10 +64,13 @@ export function Images() {
 
   const [question, setQuestion] = useState('')
 
+  const [preset, setPreset] = useState('')
+  const [outputFormat, setOutputFormat] = useState<'png' | 'jpeg'>('png')
+
   const run = useMutation({
     mutationFn: async (): Promise<McpToolResult> => {
       if (!agent) throw new Error('no agent')
-      const params = buildParams({ tool, prompt, width, height, instruction, sourceImage, aspect, question })
+      const params = buildParams({ tool, prompt, width, height, instruction, sourceImage, aspect, question, preset, outputFormat })
       const res = await container.useCases.callScraperTool(agent.id, agent.apiKey, tool, params)
       if (!res.ok) throw res.error
       return res.value
@@ -85,7 +91,7 @@ export function Images() {
           <p className="text-xs text-muted-foreground mt-1">{t('images.subtitle')}</p>
         </div>
 
-        <div className="rounded-lg border border-border bg-muted/30 p-1 grid grid-cols-3 gap-1.5 mb-4">
+        <div className="rounded-lg border border-border bg-muted/30 p-1 grid grid-cols-4 gap-1.5 mb-4">
           {IMAGE_TOOLS.map((tl) => {
             const isActive = tool === tl
             return (
@@ -206,6 +212,64 @@ export function Images() {
             </>
           ) : null}
 
+          {tool === 'generate_ad_banner' ? (
+            <>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">{t('images.prompt')}</label>
+                <Textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  rows={3}
+                  placeholder="Bold summer sale banner for a coffee brand, product centered, warm tones"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">
+                  {t('images.preset')} <span className="normal-case text-muted-foreground/60">{t('scraper.optional')}</span>
+                </label>
+                <Input
+                  value={preset}
+                  onChange={(e) => setPreset(e.target.value)}
+                  placeholder="leaderboard, medium_rectangle, fb_story, 728x90…"
+                />
+                <p className="text-[10px] text-muted-foreground/70 mt-1">{t('images.presetHint')}</p>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">{t('images.width')}</label>
+                  <Input
+                    type="number"
+                    min={16}
+                    max={4000}
+                    value={width}
+                    onChange={(e) => setWidth(Number(e.target.value) || 1024)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">{t('images.height')}</label>
+                  <Input
+                    type="number"
+                    min={16}
+                    max={4000}
+                    value={height}
+                    onChange={(e) => setHeight(Number(e.target.value) || 1024)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">{t('images.outputFormat')}</label>
+                  <select
+                    value={outputFormat}
+                    onChange={(e) => setOutputFormat(e.target.value === 'jpeg' ? 'jpeg' : 'png')}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                  >
+                    <option value="png">PNG</option>
+                    <option value="jpeg">JPEG</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          ) : null}
+
           <Button className="w-full" onClick={() => run.mutate()} disabled={run.isPending}>
             {run.isPending ? t('images.running') : t('images.run', { tool: t(TOOL_LABEL_KEYS[tool]) })}
           </Button>
@@ -253,6 +317,8 @@ type BuildArgs = Readonly<{
   sourceImage: string
   aspect: string
   question: string
+  preset: string
+  outputFormat: 'png' | 'jpeg'
 }>
 
 function buildParams(a: BuildArgs): unknown {
@@ -270,5 +336,16 @@ function buildParams(a: BuildArgs): unknown {
     }
     case 'analyze_image':
       return { prompt: a.question, image: a.sourceImage }
+    case 'generate_ad_banner': {
+      const out: Record<string, unknown> = { prompt: a.prompt, output_format: a.outputFormat }
+      const preset = a.preset.trim()
+      if (preset) {
+        out['preset'] = preset
+      } else {
+        if (a.width) out['width'] = a.width
+        if (a.height) out['height'] = a.height
+      }
+      return out
+    }
   }
 }

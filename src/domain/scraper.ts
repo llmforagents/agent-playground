@@ -19,7 +19,7 @@ export const SEARCH_TOOLS = [
 export type SearchTool = (typeof SEARCH_TOOLS)[number]
 
 export const IMAGE_TOOLS = [
-  'generate_image', 'edit_image', 'analyze_image',
+  'generate_image', 'edit_image', 'analyze_image', 'generate_ad_banner',
 ] as const
 export type ImageTool = (typeof IMAGE_TOOLS)[number]
 
