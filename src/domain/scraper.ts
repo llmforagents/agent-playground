@@ -34,6 +34,12 @@ export const EXTENDED_TOOLS = [
   'memory_set', 'memory_get', 'memory_list', 'memory_delete',
   'token_balance', 'tx_status', 'nft_metadata', 'ens_resolve',
   'pdf_parse', 'doc_extract', 'article_extract',
+  'semantic_memory_add', 'semantic_memory_search', 'memory_recall', 'memory_reflect', 'memory_consolidate',
+  'context_assemble', 'episode_log', 'memory_gc', 'memory_status', 'memory_usage', 'memory_export', 'memory_import',
+  'graph_add', 'graph_search',
+  'skill_get', 'skill_save', 'skill_search',
+  'workspace_create', 'workspace_list', 'workspace_stat', 'workspace_delete', 'workspace_copy', 'workspace_extend',
+  'workspace_upload', 'workspace_upload_init', 'workspace_upload_finalize', 'workspace_download',
 ] as const
 export type ExtendedTool = (typeof EXTENDED_TOOLS)[number]
 

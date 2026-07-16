@@ -2,7 +2,7 @@ import type { McpToolName } from './scraper'
 
 export type ChatToolDef = Readonly<{
   mcpName: McpToolName
-  category: 'search' | 'scraper' | 'image' | 'ai' | 'notify' | 'data' | 'vector' | 'web_crawl' | 'memory' | 'web3' | 'document'
+  category: 'search' | 'scraper' | 'image' | 'ai' | 'notify' | 'data' | 'vector' | 'web_crawl' | 'memory' | 'web3' | 'document' | 'graph' | 'skills' | 'workspace'
   costPerCall: string
   openai: {
     type: 'function'
@@ -1151,6 +1151,625 @@ export const CHAT_TOOLS: readonly ChatToolDef[] = [
             url: { type: 'string', description: 'The article URL to extract' },
           },
           required: ['url'],
+        },
+      },
+    },
+  },
+
+  // === Memory ===
+  {
+    mcpName: 'semantic_memory_add',
+    category: 'memory',
+    costPerCall: '$0.01',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'semantic_memory_add',
+        description: 'Extract and store long-term facts from text or conversation messages into your private semantic memory. Automatically deduplicates against existing memories. Provide exactly one of text or messages. Billed per ~4000-char chunk (min 1 unit).',
+        parameters: {
+          type: 'object',
+          properties: {
+            text: { type: 'string', description: 'Raw text to extract facts from (max 20000 chars). Provide this OR messages.' },
+            messages: {
+              type: 'array',
+              description: 'Conversation messages to extract facts from (max 200). Provide this OR text.',
+              items: {
+                type: 'object',
+                properties: {
+                  role: { type: 'string', description: 'Message role (e.g. "user", "assistant")' },
+                  content: { type: 'string', description: 'Message content' },
+                },
+                required: ['role', 'content'],
+              },
+            },
+            provenance: {
+              type: 'object',
+              description: 'Optional provenance metadata: source (observation|operator|agent_self|peer_agent|inference), confidence (0-1), valence (-1 to 1), magnitude (0-1), validAt, invalidAt, visibility (private|shared), acl.',
+              properties: {
+                source: { type: 'string', enum: ['observation', 'operator', 'agent_self', 'peer_agent', 'inference'] },
+                confidence: { type: 'number' },
+                valence: { type: 'number' },
+                magnitude: { type: 'number' },
+                validAt: { type: 'integer' },
+                invalidAt: { type: 'integer' },
+                visibility: { type: 'string', enum: ['private', 'shared'] },
+                acl: { type: 'array', items: { type: 'string' } },
+              },
+            },
+          },
+          required: [],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'semantic_memory_search',
+    category: 'memory',
+    costPerCall: '$0.01',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'semantic_memory_search',
+        description: 'Search your semantic memory for facts relevant to a query. Returns up to top_k memories ranked by relevance (reranked). Per-call billing.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'The search query (max 512 chars)' },
+            top_k: { type: 'integer', description: 'Number of results to return, 1-20 (default 8)' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'memory_recall',
+    category: 'memory',
+    costPerCall: '$0.02',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'memory_recall',
+        description: 'Recall the most relevant memories (semantic facts + episodic experiences + graph facts + skills) for a query as one ranked brief.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'The query to recall memories for (max 512 chars)' },
+            top_k: { type: 'integer', description: 'Number of results to return, 1-20 (default 8)' },
+            sources: {
+              type: 'array',
+              items: { type: 'string', enum: ['semantic', 'episodic', 'graph', 'skill'] },
+              description: 'Optional subset of memory sources to query; defaults to all four',
+            },
+          },
+          required: ['query'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'memory_reflect',
+    category: 'memory',
+    costPerCall: '$0.02',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'memory_reflect',
+        description: 'Distill recent unreflected episodes into durable lessons (stored to semantic memory) and suggested rules (returned), and best-effort generate reusable skills. Metered per ~20-episode chunk.',
+        parameters: {
+          type: 'object',
+          properties: {
+            window: { type: 'integer', description: 'Number of recent unreflected episodes to consider, 1-50 (default 20)' },
+          },
+          required: [],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'memory_consolidate',
+    category: 'memory',
+    costPerCall: '$0.02',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'memory_consolidate',
+        description: 'Maintain semantic memory: merge near-duplicates (dedup) and forget stale/low-value memories (decay), optionally decaying confidence over time (decay_confidence). Bounded and idempotent.',
+        parameters: {
+          type: 'object',
+          properties: {
+            max_ops: { type: 'integer', description: 'Maximum operations to perform, 1-100 (default 50)' },
+            operations: {
+              type: 'array',
+              items: { type: 'string', enum: ['decay', 'dedup', 'decay_confidence'] },
+              description: 'Which maintenance operations to run (default ["decay", "dedup"])',
+            },
+          },
+          required: [],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'context_assemble',
+    category: 'memory',
+    costPerCall: '$0.03',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'context_assemble',
+        description: 'Assemble a token-budgeted working-memory brief from all stores (semantic, episodic, graph, skills) relevant to a goal.',
+        parameters: {
+          type: 'object',
+          properties: {
+            goal: { type: 'string', description: 'The goal or task to assemble context for (max 512 chars)' },
+            token_budget: { type: 'integer', description: 'Approximate token budget for the assembled brief, 200-8000 (default 2000)' },
+            sources: {
+              type: 'array',
+              items: { type: 'string', enum: ['semantic', 'episodic', 'graph', 'skill'] },
+              description: 'Optional subset of memory sources to include; defaults to all four',
+            },
+          },
+          required: ['goal'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'episode_log',
+    category: 'memory',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'episode_log',
+        description: 'Record a trajectory (situation/action/outcome + valence) into episodic memory. Free, rate-limited.',
+        parameters: {
+          type: 'object',
+          properties: {
+            situation: { type: 'string', description: 'The situation encountered (max 20000 chars)' },
+            action: { type: 'string', description: 'Optional action taken (max 20000 chars)' },
+            outcome: { type: 'string', description: 'Optional outcome observed (max 20000 chars)' },
+            valence: { type: 'number', description: 'Optional outcome valence, -1 (bad) to 1 (good)' },
+            magnitude: { type: 'number', description: 'Optional magnitude/importance, 0-1' },
+            provenance: {
+              type: 'object',
+              description: 'Optional provenance metadata (source, confidence, visibility, acl, etc.)',
+              properties: {
+                source: { type: 'string', enum: ['observation', 'operator', 'agent_self', 'peer_agent', 'inference'] },
+                confidence: { type: 'number' },
+                visibility: { type: 'string', enum: ['private', 'shared'] },
+                acl: { type: 'array', items: { type: 'string' } },
+              },
+            },
+          },
+          required: ['situation'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'memory_gc',
+    category: 'memory',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'memory_gc',
+        description: 'Permanently delete your memories that were soft-deleted over 90 days ago, reclaiming storage.',
+        parameters: {
+          type: 'object',
+          properties: {
+            max_ops: { type: 'integer', description: 'Maximum number of items to purge, 1-100 (default 50)' },
+          },
+          required: [],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'memory_status',
+    category: 'memory',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'memory_status',
+        description: 'Report your memory lifecycle state (active/hibernated/thawing) and thaw progress. Free, no charge, never gated.',
+        parameters: { type: 'object', properties: {}, required: [] },
+      },
+    },
+  },
+  {
+    mcpName: 'memory_usage',
+    category: 'memory',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'memory_usage',
+        description: 'Report your current memory footprint (item_count, byte_size) vs quota (5000 items / 5MB). Free, no charge.',
+        parameters: { type: 'object', properties: {}, required: [] },
+      },
+    },
+  },
+  {
+    mcpName: 'memory_export',
+    category: 'memory',
+    costPerCall: '$0.03',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'memory_export',
+        description: 'Export your live memories (semantic/graph/skills, optionally episodic) as a portable bundle with a single-use download URL.',
+        parameters: {
+          type: 'object',
+          properties: {
+            pillars: {
+              type: 'array',
+              items: { type: 'string', enum: ['semantic', 'graph', 'skills', 'episodic'] },
+              description: 'Optional subset of memory pillars to export; defaults to all',
+            },
+            include_episodes: { type: 'boolean', description: 'If true, include episodic memories (default false)' },
+            include_vectors: { type: 'boolean', description: 'If true, include raw embedding vectors (default false)' },
+          },
+          required: [],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'memory_import',
+    category: 'memory',
+    costPerCall: '$0.05',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'memory_import',
+        description: 'Import a memory-os-bundle/v1 (from a prior memory_export) into your own memory — semantic/graph/skills/episodic, provenance- and lineage-stamped. Provide exactly one of bundle_key or bundle. Supports "into_empty" (always insert) and "merge" (dedup + source-rank conflict resolution) modes.',
+        parameters: {
+          type: 'object',
+          properties: {
+            bundle_key: { type: 'string', description: 'A bundle_key returned by a prior memory_export call. Provide this OR bundle.' },
+            bundle: { type: 'object', description: 'A full memory-os-bundle/v1 envelope object to import inline. Provide this OR bundle_key.' },
+            mode: { type: 'string', enum: ['into_empty', 'merge'], description: 'Import mode, default "into_empty"' },
+          },
+          required: [],
+        },
+      },
+    },
+  },
+
+  // === Graph ===
+  {
+    mcpName: 'graph_add',
+    category: 'graph',
+    costPerCall: '$0.04',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'graph_add',
+        description: 'Extract a knowledge graph (entities + edges) from text or conversation messages and persist it to your private graph memory. Automatically classifies entities (merge/gray/new), judges ambiguous merges with LLM, and invalidates contradicted edges (bi-temporal). Provide exactly one of text or messages. Billed per ~3000-char chunk (min 1 unit).',
+        parameters: {
+          type: 'object',
+          properties: {
+            text: { type: 'string', description: 'Raw text to extract a graph from (max 20000 chars). Provide this OR messages.' },
+            messages: {
+              type: 'array',
+              description: 'Conversation messages to extract a graph from (max 200). Provide this OR text.',
+              items: {
+                type: 'object',
+                properties: {
+                  role: { type: 'string', description: 'Message role (e.g. "user", "assistant")' },
+                  content: { type: 'string', description: 'Message content' },
+                },
+                required: ['role', 'content'],
+              },
+            },
+            provenance: {
+              type: 'object',
+              description: 'Optional provenance metadata (source, confidence, visibility, acl, etc.)',
+              properties: {
+                source: { type: 'string', enum: ['observation', 'operator', 'agent_self', 'peer_agent', 'inference'] },
+                confidence: { type: 'number' },
+                visibility: { type: 'string', enum: ['private', 'shared'] },
+                acl: { type: 'array', items: { type: 'string' } },
+              },
+            },
+          },
+          required: [],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'graph_search',
+    category: 'graph',
+    costPerCall: '$0.02',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'graph_search',
+        description: 'Hybrid knowledge-graph search: fuses semantic (vector), full-text, and BFS expansion via Reciprocal Rank Fusion. Returns ranked facts with entity names, relation, and temporal validity. Supports point-in-time queries via as_of.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'The search query (max 512 chars)' },
+            top_k: { type: 'integer', description: 'Number of facts to return, 1-20 (default 8)' },
+            hops: { type: 'integer', description: 'BFS expansion hops from seed entities, 0-3 (default 1)' },
+            as_of: { type: 'integer', description: 'Optional unix-ms timestamp for point-in-time (bi-temporal) queries' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+  },
+
+  // === Skills ===
+  {
+    mcpName: 'skill_get',
+    category: 'skills',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'skill_get',
+        description: 'Fetch a skill by exact name. Free, rate-limited.',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'The exact skill name (max 200 chars)' },
+          },
+          required: ['name'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'skill_save',
+    category: 'skills',
+    costPerCall: '$0.01',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'skill_save',
+        description: 'Save (or self-edit) a named, triggerable skill (procedure) into your skill library.',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'The skill name (max 200 chars)' },
+            trigger: { type: 'string', description: 'Description of the situation that should trigger this skill (max 2000 chars)' },
+            body: { type: 'string', description: 'The skill procedure/body content (max 16000 chars)' },
+            provenance: {
+              type: 'object',
+              description: 'Optional provenance metadata (source, confidence, visibility, acl, etc.)',
+              properties: {
+                source: { type: 'string', enum: ['observation', 'operator', 'agent_self', 'peer_agent', 'inference'] },
+                confidence: { type: 'number' },
+                visibility: { type: 'string', enum: ['private', 'shared'] },
+                acl: { type: 'array', items: { type: 'string' } },
+              },
+            },
+          },
+          required: ['name', 'trigger', 'body'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'skill_search',
+    category: 'skills',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'skill_search',
+        description: 'Search your skill library for skills whose trigger matches the situation. Free, rate-limited.',
+        parameters: {
+          type: 'object',
+          properties: {
+            situation: { type: 'string', description: 'Description of the current situation to match against skill triggers (max 512 chars)' },
+            top_k: { type: 'integer', description: 'Number of skills to return, 1-20 (default 5)' },
+          },
+          required: ['situation'],
+        },
+      },
+    },
+  },
+
+  // === Workspace ===
+  {
+    mcpName: 'workspace_create',
+    category: 'workspace',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'workspace_create',
+        description: 'Create or confirm your private workspace (idempotent).',
+        parameters: { type: 'object', properties: {}, required: [] },
+      },
+    },
+  },
+  {
+    mcpName: 'workspace_list',
+    category: 'workspace',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'workspace_list',
+        description: 'List files in your workspace (free, rate-limited).',
+        parameters: {
+          type: 'object',
+          properties: {
+            prefix: { type: 'string', description: 'Optional filename prefix to filter by (max 255 chars)' },
+            limit: { type: 'integer', description: 'Optional maximum number of files to return, 1-500' },
+          },
+          required: [],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'workspace_stat',
+    category: 'workspace',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'workspace_stat',
+        description: 'Get metadata for one file (free, rate-limited).',
+        parameters: {
+          type: 'object',
+          properties: {
+            filename: { type: 'string', description: 'Path of the file in the workspace' },
+          },
+          required: ['filename'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'workspace_delete',
+    category: 'workspace',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'workspace_delete',
+        description: 'Delete a file from your workspace (free, rate-limited, no refund).',
+        parameters: {
+          type: 'object',
+          properties: {
+            filename: { type: 'string', description: 'Path of the file to delete' },
+          },
+          required: ['filename'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'workspace_copy',
+    category: 'workspace',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'workspace_copy',
+        description: 'Copy a file to a new name within your workspace.',
+        parameters: {
+          type: 'object',
+          properties: {
+            source_filename: { type: 'string', description: 'Path of the existing file to copy' },
+            dest_filename: { type: 'string', description: 'Destination path for the copy' },
+            days_to_store: { type: 'integer', description: 'How many days to retain the copy, 1-365' },
+          },
+          required: ['source_filename', 'dest_filename', 'days_to_store'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'workspace_extend',
+    category: 'workspace',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'workspace_extend',
+        description: 'Extend storage on an existing file by N days.',
+        parameters: {
+          type: 'object',
+          properties: {
+            filename: { type: 'string', description: 'Path of the file to extend' },
+            additional_days: { type: 'integer', description: 'Additional days to extend storage by, 1-365' },
+          },
+          required: ['filename', 'additional_days'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'workspace_upload',
+    category: 'workspace',
+    costPerCall: '$0.01/MB',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'workspace_upload',
+        description: 'Upload a file inline (≤10MB), billed per-MB + storage days.',
+        parameters: {
+          type: 'object',
+          properties: {
+            filename: { type: 'string', description: 'Destination path in the workspace' },
+            content_base64: { type: 'string', description: 'The file content encoded as base64' },
+            days_to_store: { type: 'integer', description: 'How many days to retain the file, 1-365' },
+            content_type: { type: 'string', description: 'Optional MIME type of the file' },
+          },
+          required: ['filename', 'content_base64', 'days_to_store'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'workspace_upload_init',
+    category: 'workspace',
+    costPerCall: 'free',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'workspace_upload_init',
+        description: 'Begin a large upload — returns a presigned PUT URL and an upload_id to finalize with workspace_upload_finalize.',
+        parameters: {
+          type: 'object',
+          properties: {
+            filename: { type: 'string', description: 'Destination path in the workspace' },
+            size_bytes: { type: 'integer', description: 'Total size of the upload in bytes (0 to 5GB)' },
+            days_to_store: { type: 'integer', description: 'How many days to retain the file, 1-365' },
+            content_type: { type: 'string', description: 'Optional MIME type of the file' },
+          },
+          required: ['filename', 'size_bytes', 'days_to_store'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'workspace_upload_finalize',
+    category: 'workspace',
+    costPerCall: '$0.01/MB',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'workspace_upload_finalize',
+        description: 'Confirm a large upload (started with workspace_upload_init) completed; settles billing.',
+        parameters: {
+          type: 'object',
+          properties: {
+            upload_id: { type: 'string', description: 'The upload id returned by workspace_upload_init' },
+          },
+          required: ['upload_id'],
+        },
+      },
+    },
+  },
+  {
+    mcpName: 'workspace_download',
+    category: 'workspace',
+    costPerCall: '$0.004/MB',
+    openai: {
+      type: 'function',
+      function: {
+        name: 'workspace_download',
+        description: 'Download a file inline (≤10MB) or get a short-lived signed URL.',
+        parameters: {
+          type: 'object',
+          properties: {
+            filename: { type: 'string', description: 'Path of the file to download' },
+            format: { type: 'string', enum: ['inline', 'url'], description: 'Response format, default "inline"' },
+            url_ttl_minutes: { type: 'integer', description: 'TTL for the signed URL in minutes, 1-15 (only used with format="url")' },
+          },
+          required: ['filename'],
         },
       },
     },

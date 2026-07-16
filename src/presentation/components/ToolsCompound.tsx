@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   EyeIcon, WrenchIcon, SearchIcon, GlobeIcon, XIcon, ImageIcon,
   SparklesIcon, BellIcon, DatabaseIcon, BoxesIcon, NetworkIcon, BrainIcon, CoinsIcon, FileTextIcon,
+  Share2Icon, GraduationCapIcon, FolderIcon,
 } from 'lucide-react'
 import { CHAT_TOOLS, type ChatToolDef } from '@/domain/chatTools'
 import { Switch } from '@/presentation/components/ui/switch'
@@ -34,6 +35,9 @@ const TOOL_GROUPS: readonly ToolGroupDef[] = [
   { cat: 'memory', title: () => 'Memory', icon: <BrainIcon className="size-3.5" /> },
   { cat: 'web3', title: () => 'Web3', icon: <CoinsIcon className="size-3.5" /> },
   { cat: 'document', title: () => 'Document', icon: <FileTextIcon className="size-3.5" /> },
+  { cat: 'graph', title: () => 'Graph', icon: <Share2Icon className="size-3.5" /> },
+  { cat: 'skills', title: () => 'Skills', icon: <GraduationCapIcon className="size-3.5" /> },
+  { cat: 'workspace', title: () => 'Workspace', icon: <FolderIcon className="size-3.5" /> },
 ] as const
 
 function renderToolGroups(t: TFn): React.JSX.Element {
