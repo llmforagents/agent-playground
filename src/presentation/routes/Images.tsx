@@ -66,11 +66,12 @@ export function Images() {
 
   const [preset, setPreset] = useState('')
   const [outputFormat, setOutputFormat] = useState<'png' | 'jpeg'>('png')
+  const [logo, setLogo] = useState('')
 
   const run = useMutation({
     mutationFn: async (): Promise<McpToolResult> => {
       if (!agent) throw new Error('no agent')
-      const params = buildParams({ tool, prompt, width, height, instruction, sourceImage, aspect, question, preset, outputFormat })
+      const params = buildParams({ tool, prompt, width, height, instruction, sourceImage, aspect, question, preset, outputFormat, logo })
       const res = await container.useCases.callScraperTool(agent.id, agent.apiKey, tool, params)
       if (!res.ok) throw res.error
       return res.value
@@ -267,6 +268,19 @@ export function Images() {
                   </select>
                 </div>
               </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">
+                  {t('images.logo')} <span className="normal-case text-muted-foreground/60">{t('scraper.optional')}</span>
+                </label>
+                <Textarea
+                  value={logo}
+                  onChange={(e) => setLogo(e.target.value)}
+                  rows={2}
+                  placeholder="https://… or data:image/png;base64,…"
+                  className="font-mono text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground/70 mt-1">{t('images.logoHint')}</p>
+              </div>
             </>
           ) : null}
 
@@ -319,6 +333,7 @@ type BuildArgs = Readonly<{
   question: string
   preset: string
   outputFormat: 'png' | 'jpeg'
+  logo: string
 }>
 
 function buildParams(a: BuildArgs): unknown {
@@ -345,6 +360,8 @@ function buildParams(a: BuildArgs): unknown {
         if (a.width) out['width'] = a.width
         if (a.height) out['height'] = a.height
       }
+      const logo = a.logo.trim()
+      if (logo) out['images'] = [logo]
       return out
     }
   }

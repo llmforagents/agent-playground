@@ -268,6 +268,7 @@ export const CHAT_TOOLS: readonly ChatToolDef[] = [
             width: { type: 'integer', description: 'Banner width in pixels (16–4000). Use with height when not using a preset.' },
             height: { type: 'integer', description: 'Banner height in pixels (16–4000). Use with width when not using a preset.' },
             output_format: { type: 'string', enum: ['png', 'jpeg'], description: 'Output format, default "png".' },
+            images: { type: 'array', items: { type: 'string' }, description: 'Optional reference images (e.g. a brand logo) as https URLs or base64 data URIs; the banner is composed using them.' },
           },
           required: ['prompt'],
         },
